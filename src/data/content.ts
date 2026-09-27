@@ -2,12 +2,14 @@ import type { NewGameSetup } from '@game/gameState';
 import type { GameContent } from '@game/world';
 import { STARTING_CHARACTERS } from './characters';
 import { DISTRICTS } from './districts';
+import { EVENTS } from './events';
 import { BASE_LOCATION_ID, LOCATIONS } from './locations';
 
 /** All static content, bundled for the game logic. */
 export const GAME_CONTENT: GameContent = {
   districts: DISTRICTS,
   locations: LOCATIONS,
+  events: EVENTS,
 };
 
 export const STARTING_RESOURCES = {

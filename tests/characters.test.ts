@@ -46,7 +46,7 @@ describe('characters', () => {
   });
 
   it('dead characters cannot join a squad', () => {
-    const dead = { ...createCharacter(MAXIM), condition: { health: 0, maxHealth: 100 } };
+    const dead = { ...createCharacter(MAXIM), condition: { ...createCharacter(MAXIM).condition, health: 0 } };
     expect(isAvailableForSquad(dead)).toBe(false);
   });
 });

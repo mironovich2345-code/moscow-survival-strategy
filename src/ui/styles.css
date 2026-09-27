@@ -119,3 +119,34 @@ button.danger { border-color: var(--danger); color: var(--danger); background: t
   .district { grid-column: auto !important; grid-row: auto !important; }
   .topbar__nav { margin-left: 0; }
 }
+
+/* 0.2 */
+.small { font-size: 0.85rem; }
+.tag--warn { color: var(--danger); border-color: var(--danger); }
+.risk { font-size: 0.8rem; }
+.risk--low { color: var(--ok); }
+.risk--medium { color: var(--accent); }
+.risk--high { color: var(--danger); }
+.district__locations .location { text-align: left; width: 100%; }
+.facts { display: grid; gap: 0.25rem; margin: 0.5rem 0; }
+.facts div { display: grid; grid-template-columns: 160px 1fr; gap: 0.5rem; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.dialog { max-width: 560px; width: 100%; border-color: var(--accent); }
+.dialog__choices { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.8rem; }
+.dialog__choices button { text-align: left; }
+
+@media (max-width: 700px) {
+  .facts div { grid-template-columns: 1fr; gap: 0; }
+}

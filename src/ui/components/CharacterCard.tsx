@@ -17,6 +17,8 @@ export function CharacterCard({ character }: { readonly character: Character }) 
       </header>
       <p>
         Здоровье: {condition.health}/{condition.maxHealth}
+        {condition.hungry && <span className="tag tag--warn">голоден</span>}
+        {condition.thirsty && <span className="tag tag--warn">жажда</span>}
       </p>
       <dl className="stats">
         {ATTRIBUTE_IDS.map((id) => (

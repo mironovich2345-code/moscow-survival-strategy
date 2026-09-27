@@ -4,22 +4,16 @@ import { LEFORTOVO_PHARMACY_ID, BASE_LOCATION_ID } from '@data/locations';
 import { applyCommand, endTurn, type GameState } from '@game/gameState';
 import { MAX_SQUAD_SIZE } from '@game/expeditions';
 import { getDay, formatClock } from '@game/time';
-import { content, newGame } from './helpers';
+import { content, endTurns, newGame, quietContent } from './helpers';
 
 function send(state: GameState, memberIds: readonly string[], locationId = LEFORTOVO_PHARMACY_ID) {
-  return applyCommand(state, { type: 'sendExpedition', locationId, memberIds }, content);
+  return applyCommand(state, { type: 'sendExpedition', locationId, memberIds }, quietContent);
 }
 
 function mustSend(state: GameState, memberIds: readonly string[]): GameState {
   const result = send(state, memberIds);
   if (!result.ok) throw new Error(result.error);
   return result.state;
-}
-
-function endTurns(state: GameState, n: number): GameState {
-  let s = state;
-  for (let i = 0; i < n; i += 1) s = endTurn(s, content);
-  return s;
 }
 
 const pharmacyTurns = content.locations[LEFORTOVO_PHARMACY_ID]!.expeditionTurns;
@@ -45,12 +39,13 @@ describe('expeditions', () => {
     expect(state.expeditions).toHaveLength(1);
     expect(state.resources.medicine).toBe(start.resources.medicine);
 
-    state = endTurn(state, content);
+    state = endTurn(state, quietContent);
     expect(state.expeditions).toHaveLength(0);
     expect(state.time - start.time).toBe(pharmacyTurns * 2);
     const gained = state.resources.medicine - start.resources.medicine;
+    // Maxim: scavenging 2 → +20 %, so 1–5 becomes 1–6.
     expect(gained).toBeGreaterThanOrEqual(1);
-    expect(gained).toBeLessThanOrEqual(5);
+    expect(gained).toBeLessThanOrEqual(6);
     expect(state.characters.every((c) => c.assignment.type === 'base')).toBe(true);
 
     const entry = state.log.at(-1);

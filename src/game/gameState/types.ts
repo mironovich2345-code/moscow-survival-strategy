@@ -7,7 +7,7 @@ import type { GameHour } from '../time';
 import type { LocationId } from '../world';
 
 /** Bump when the shape of GameState changes; add a migration in persistence. */
-export const GAME_STATE_VERSION = 1;
+export const GAME_STATE_VERSION = 2;
 
 /**
  * The complete, serialisable state of one campaign. Plain JSON data only:

@@ -4,6 +4,7 @@ import { GAME_CONTENT } from '@data/content';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ExpeditionList } from '../components/ExpeditionList';
 import { SquadPanel } from '../components/SquadPanel';
+import { RISK_LABELS } from '../labels';
 
 const districts: readonly DistrictDefinition[] = Object.values(GAME_CONTENT.districts);
 const locations: readonly LocationDefinition[] = Object.values(GAME_CONTENT.locations);
@@ -45,7 +46,10 @@ export function MapScreen({ onBack }: { readonly onBack: () => void }) {
                           }
                           onClick={() => setSelectedLocationId(location.id)}
                         >
-                          ✚ {location.name}
+                          {location.name}{' '}
+                          <span className={`risk risk--${location.risk}`}>
+                            риск: {RISK_LABELS[location.risk]}
+                          </span>
                         </button>
                       </li>
                     ),

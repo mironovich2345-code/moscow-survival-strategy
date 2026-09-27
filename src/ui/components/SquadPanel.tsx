@@ -2,10 +2,12 @@ import { useState } from 'react';
 import {
   HOURS_PER_TURN,
   MAX_SQUAD_SIZE,
+  applyLootBonus,
+  getScavengingBonusPercent,
   isAvailableForSquad,
   type LocationDefinition,
 } from '@game/index';
-import { RESOURCE_LABELS } from '../labels';
+import { RISK_LABELS, SKILL_LABELS, formatLootRange } from '../labels';
 import { useGameStore } from '../store/gameStore';
 
 interface SquadPanelProps {
@@ -29,16 +31,42 @@ export function SquadPanel({ location, onSent }: SquadPanelProps) {
   };
 
   const hours = location.expeditionTurns * HOURS_PER_TURN;
+  const squad = characters.filter((c) => selected.includes(c.id));
+  const bonus = getScavengingBonusPercent(squad);
 
   return (
     <section className="panel squad">
       <h2>{location.name}</h2>
       <p className="muted">{location.description}</p>
-      <p>
-        Время похода: {location.expeditionTurns} х. ({hours} ч). Возможная добыча:{' '}
-        {location.loot
-          .map((l) => `${RESOURCE_LABELS[l.resource]} ${l.min}–${l.max}`)
-          .join(', ')}
+      <dl className="facts">
+        <div>
+          <dt>Базовое время</dt>
+          <dd>
+            {location.expeditionTurns} х. ({hours} ч)
+          </dd>
+        </div>
+        <div>
+          <dt>Риск</dt>
+          <dd className={`risk risk--${location.risk}`}>{RISK_LABELS[location.risk]}</dd>
+        </div>
+        <div>
+          <dt>Возможная добыча</dt>
+          <dd>{location.loot.map((range) => formatLootRange(range)).join(', ')}</dd>
+        </div>
+        <div>
+          <dt>С этим отрядом</dt>
+          <dd>
+            {squad.length === 0
+              ? '— выберите участников —'
+              : `${location.loot
+                  .map((range) => formatLootRange(range, (n) => applyLootBonus(n, bonus)))
+                  .join(', ')} (поиск +${bonus} %)`}
+          </dd>
+        </div>
+      </dl>
+      <p className="muted small">
+        Бонус поиска: +10 % за каждое очко навыка «{SKILL_LABELS.scavenging}» у участников, максимум
+        +100 %. В пути возможны события.
       </p>
 
       <h3>
@@ -61,7 +89,13 @@ export function SquadPanel({ location, onSent }: SquadPanelProps) {
                   disabled={!available || full}
                   onChange={() => toggle(character.id)}
                 />{' '}
-                {character.name} {!available && '(недоступен)'}
+                {character.name}{' '}
+                <span className="muted">
+                  ({SKILL_LABELS.scavenging}: {character.skills.scavenging})
+                </span>
+                {character.condition.hungry && <span className="tag tag--warn">голоден</span>}
+                {character.condition.thirsty && <span className="tag tag--warn">жажда</span>}
+                {!available && ' (недоступен)'}
               </label>
             </li>
           );

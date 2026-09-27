@@ -50,7 +50,10 @@ function persist(game: GameState): void {
 function loadOrCreate(): GameState {
   const storage = getStorage();
   const saved = storage ? loadGame(storage) : null;
-  if (saved) return saved;
+  if (saved) {
+    persist(saved); // rewrites a migrated older save in the current format
+    return saved;
+  }
   const game = createNewGame(createPrototypeSetup(randomSeed()));
   persist(game);
   return game;

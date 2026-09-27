@@ -1,4 +1,5 @@
-import { RESOURCE_KINDS, formatClock, getDay } from '@game/index';
+import { RESOURCE_KINDS, formatClock, getDay, isAwaitingDecision } from '@game/index';
+import { GAME_CONTENT } from '@data/content';
 import { RESOURCE_LABELS } from '../labels';
 import { useGameStore } from '../store/gameStore';
 import type { Screen } from '../App';
@@ -13,6 +14,7 @@ export function TopBar({ screen, onNavigate }: TopBarProps) {
   const turn = useGameStore((s) => s.game.turn);
   const resources = useGameStore((s) => s.game.resources);
   const dispatch = useGameStore((s) => s.dispatch);
+  const awaiting = useGameStore((s) => isAwaitingDecision(s.game, GAME_CONTENT));
 
   return (
     <header className="topbar">
@@ -46,8 +48,14 @@ export function TopBar({ screen, onNavigate }: TopBarProps) {
         >
           Карта
         </button>
-        <button type="button" className="primary" onClick={() => dispatch({ type: 'endTurn' })}>
-          Следующий ход (+2 ч)
+        <button
+          type="button"
+          className="primary"
+          disabled={awaiting}
+          title={awaiting ? 'Сначала примите решение по событию' : undefined}
+          onClick={() => dispatch({ type: 'endTurn' })}
+        >
+          {awaiting ? 'Ждёт решения…' : 'Следующий ход (+2 ч)'}
         </button>
       </nav>
     </header>

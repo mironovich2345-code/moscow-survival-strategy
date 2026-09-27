@@ -40,6 +40,9 @@ function isCharacter(value: unknown): boolean {
     hasNumberFields(value.attributes, ATTRIBUTE_IDS) &&
     hasNumberFields(value.skills, SKILL_IDS) &&
     hasNumberFields(condition, ['health', 'maxHealth']) &&
+    isRecord(condition) &&
+    typeof condition.hungry === 'boolean' &&
+    typeof condition.thirsty === 'boolean' &&
     isRecord(equipment) &&
     EQUIPMENT_SLOTS.every((slot) => equipment[slot] === null || typeof equipment[slot] === 'string') &&
     isRecord(assignment) &&
@@ -56,7 +59,13 @@ function isExpedition(value: unknown): boolean {
     Array.isArray(value.memberIds) &&
     value.memberIds.every((id) => typeof id === 'string') &&
     isFiniteNumber(value.departedAt) &&
-    isFiniteNumber(value.returnsAt)
+    isFiniteNumber(value.returnsAt) &&
+    isRecord(value.haul) &&
+    Object.values(value.haul).every(isFiniteNumber) &&
+    (value.pendingEventId === null || typeof value.pendingEventId === 'string') &&
+    Array.isArray(value.seenEventIds) &&
+    value.seenEventIds.every((id) => typeof id === 'string') &&
+    typeof value.aborted === 'boolean'
   );
 }
 
@@ -80,10 +89,59 @@ export function isGameState(value: unknown): value is GameState {
   );
 }
 
+// ---------------------------------------------------------------------------
+// Migrations. Each step takes the raw object of version N and returns N + 1.
+// Steps must be defensive: input is untrusted and may be partially broken.
+// ---------------------------------------------------------------------------
+
+function mapArray(value: unknown, fn: (item: UnknownRecord) => UnknownRecord): unknown {
+  return Array.isArray(value) ? value.map((item) => (isRecord(item) ? fn(item) : item)) : value;
+}
+
+/** v1 → v2: hunger/thirst flags, expedition events & haul, `aborted` on return logs. */
+function migrateV1toV2(save: UnknownRecord): UnknownRecord {
+  return {
+    ...save,
+    version: 2,
+    characters: mapArray(save.characters, (character) => ({
+      ...character,
+      condition: isRecord(character.condition)
+        ? { hungry: false, thirsty: false, ...character.condition }
+        : character.condition,
+    })),
+    expeditions: mapArray(save.expeditions, (expedition) => ({
+      haul: {},
+      pendingEventId: null,
+      seenEventIds: [],
+      aborted: false,
+      ...expedition,
+    })),
+    log: mapArray(save.log, (entry) =>
+      entry.type === 'expeditionReturned' ? { aborted: false, ...entry } : entry,
+    ),
+  };
+}
+
+const MIGRATIONS: Readonly<Record<number, (save: UnknownRecord) => UnknownRecord>> = {
+  1: migrateV1toV2,
+};
+
+/** Brings an old save up to GAME_STATE_VERSION and validates it. Null if impossible. */
+export function migrateSave(data: unknown): GameState | null {
+  if (!isRecord(data) || !isFiniteNumber(data.version)) return null;
+  let current: UnknownRecord = data;
+  while (isFiniteNumber(current.version) && current.version < GAME_STATE_VERSION) {
+    const step = MIGRATIONS[current.version];
+    if (!step) return null;
+    current = step(current);
+  }
+  return isGameState(current) ? current : null;
+}
+
 export function deserializeGame(raw: string): GameState | null {
   try {
     const parsed: unknown = JSON.parse(raw);
-    return isGameState(parsed) ? parsed : null;
+    return migrateSave(parsed);
   } catch {
     return null;
   }
@@ -95,8 +153,12 @@ export function saveGame(storage: StorageLike, state: GameState): void {
 
 /** Returns the saved game, or null if there is none or it is corrupt/outdated. */
 export function loadGame(storage: StorageLike): GameState | null {
-  const raw = storage.getItem(SAVE_KEY);
-  return raw === null ? null : deserializeGame(raw);
+  try {
+    const raw = storage.getItem(SAVE_KEY);
+    return raw === null ? null : deserializeGame(raw);
+  } catch {
+    return null;
+  }
 }
 
 export function clearSave(storage: StorageLike): void {

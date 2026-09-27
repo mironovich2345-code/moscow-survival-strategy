@@ -17,6 +17,10 @@ export type Equipment = Readonly<Record<EquipmentSlot, ItemId | null>>;
 export interface CharacterCondition {
   readonly health: number;
   readonly maxHealth: number;
+  /** Did not get a food portion at the last daily consumption. */
+  readonly hungry: boolean;
+  /** Did not get a water portion at the last daily consumption. */
+  readonly thirsty: boolean;
 }
 
 /** Where the character is right now. Extend with new variants (e.g. 'wounded', 'guard'). */

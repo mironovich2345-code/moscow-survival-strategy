@@ -1,3 +1,4 @@
+import type { EventDefinition, EventId } from '../events';
 import type { ResourceKind } from '../resources';
 
 /**
@@ -16,12 +17,17 @@ export interface DistrictDefinition {
   readonly mapPosition: { readonly column: number; readonly row: number };
 }
 
-export type LocationKind = 'base' | 'pharmacy';
+export type LocationKind = 'base' | 'pharmacy' | 'grocery' | 'parking' | 'police';
+
+/** Informational only in 0.2 — does not change any roll yet. */
+export type RiskLevel = 'none' | 'low' | 'medium' | 'high';
 
 export interface LootRange {
   readonly resource: ResourceKind;
   readonly min: number;
   readonly max: number;
+  /** Chance (1–100 %) that this entry drops at all. Omitted = always. */
+  readonly chancePercent?: number;
 }
 
 export interface LocationDefinition {
@@ -30,6 +36,7 @@ export interface LocationDefinition {
   readonly districtId: DistrictId;
   readonly kind: LocationKind;
   readonly description: string;
+  readonly risk: RiskLevel;
   /** Total expedition time (there and back, including search), in turns. */
   readonly expeditionTurns: number;
   readonly loot: readonly LootRange[];
@@ -39,4 +46,5 @@ export interface LocationDefinition {
 export interface GameContent {
   readonly districts: Readonly<Record<DistrictId, DistrictDefinition>>;
   readonly locations: Readonly<Record<LocationId, LocationDefinition>>;
+  readonly events: Readonly<Record<EventId, EventDefinition>>;
 }

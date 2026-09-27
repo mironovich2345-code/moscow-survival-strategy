@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { EventDialog } from './components/EventDialog';
 import { TopBar } from './components/TopBar';
 import { BaseScreen } from './screens/BaseScreen';
 import { MapScreen } from './screens/MapScreen';
@@ -14,6 +15,7 @@ export function App() {
       <main className="app__main">
         {screen === 'base' ? <BaseScreen /> : <MapScreen onBack={() => setScreen('base')} />}
       </main>
+      <EventDialog />
     </div>
   );
 }

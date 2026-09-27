@@ -5,5 +5,6 @@ export * from './resources';
 export * from './characters';
 export * from './world';
 export * from './events';
+export * from './survival';
 export * from './expeditions';
 export * from './gameState';
