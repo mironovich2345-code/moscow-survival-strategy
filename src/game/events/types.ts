@@ -9,7 +9,7 @@ export type EventId = string;
 
 /** What a chosen outcome does. Extend with new variants as mechanics appear. */
 export type EventEffect =
-  /** Adds (or removes) resources to the expedition's haul. */
+  /** Positive: found → haul (capacity-limited). Negative: spent from the squad's supplies. */
   | { readonly type: 'resources'; readonly delta: ResourceDelta }
   /** Pushes the expedition's return back by N turns. */
   | { readonly type: 'delay'; readonly turns: number }
@@ -27,6 +27,8 @@ export interface EventOutcome {
 export interface EventChoice {
   readonly id: string;
   readonly text: string;
+  /** The squad must carry at least this much (supplies + haul) to pick this choice. */
+  readonly requires?: ResourceDelta;
   readonly outcomes: readonly EventOutcome[];
 }
 

@@ -163,10 +163,10 @@ describe('expedition events', () => {
     expect(returned.loot.food).toBe((found.loot.food ?? 0) + 1);
   });
 
-  it('negative resource effects reduce the stock on return', () => {
+  it('negative resource effects never touch the base stock', () => {
     const state = resolve(withTestEvent(), 'shoot');
     const home = endTurns(state, 3, testWorld);
-    expect(home.resources.ammunition).toBe(state.resources.ammunition - 2);
+    expect(home.resources.ammunition).toBe(state.resources.ammunition);
   });
 
   it('delay effect pushes the return back', () => {

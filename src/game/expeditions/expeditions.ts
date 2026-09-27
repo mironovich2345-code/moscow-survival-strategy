@@ -1,6 +1,9 @@
 import { findCharacter, isAvailableForSquad, updateCharacters } from '../characters';
 import type { Character, CharacterId } from '../characters';
-import { pickOutcome, sumResourceEffects } from '../events';
+import { pickOutcome } from '../events';
+import type { EventEffect } from '../events';
+import { SUPPLY_KINDS, emptySupplies, squadLoad } from '../inventory';
+import type { Supplies } from '../inventory';
 import { addLogEntry, allocateId } from '../gameState/ids';
 import type { GameState } from '../gameState/types';
 import { nextInt } from '../random';
@@ -15,6 +18,14 @@ import {
   SCAVENGING_BONUS_PER_POINT_PERCENT,
 } from './types';
 import type { Expedition, ExpeditionError } from './types';
+import {
+  addDeltas,
+  addFindingsToHaul,
+  carriesAtLeast,
+  compactDelta,
+  fitFindings,
+  spendFromExpedition,
+} from './cargo';
 
 export type ExpeditionResult =
   | { readonly ok: true; readonly state: GameState; readonly expedition: Expedition }
@@ -35,19 +46,50 @@ export function validateSquad(
   return null;
 }
 
+export type SuppliesRequest = Readonly<Partial<Supplies>>;
+
+function normalizeSupplies(request: SuppliesRequest): Supplies | null {
+  const supplies: Record<(typeof SUPPLY_KINDS)[number], number> = { ...emptySupplies() };
+  for (const kind of SUPPLY_KINDS) {
+    const amount = request[kind] ?? 0;
+    if (!Number.isInteger(amount) || amount < 0) return null;
+    supplies[kind] = amount;
+  }
+  return supplies;
+}
+
+/** Validates squad + supplies + capacity without changing anything. */
+export function validateExpedition(
+  state: GameState,
+  content: GameContent,
+  locationId: LocationId,
+  memberIds: readonly CharacterId[],
+  request: SuppliesRequest = {},
+): ExpeditionError | null {
+  const location = content.locations[locationId];
+  if (!location) return 'UNKNOWN_LOCATION';
+  if (location.kind === 'base' || location.expeditionTurns <= 0) return 'LOCATION_NOT_EXPLORABLE';
+  const squadError = validateSquad(state, memberIds);
+  if (squadError) return squadError;
+  const supplies = normalizeSupplies(request);
+  if (!supplies) return 'INVALID_SUPPLIES';
+  if (SUPPLY_KINDS.some((kind) => supplies[kind] > state.resources[kind])) return 'NOT_ENOUGH_SUPPLIES';
+  const load = squadLoad(state, content.items, memberIds, supplies);
+  if (load.total > load.capacity) return 'OVERLOADED';
+  return null;
+}
+
 export function startExpedition(
   state: GameState,
   content: GameContent,
   locationId: LocationId,
   memberIds: readonly CharacterId[],
+  request: SuppliesRequest = {},
 ): ExpeditionResult {
+  const error = validateExpedition(state, content, locationId, memberIds, request);
   const location = content.locations[locationId];
-  if (!location) return { ok: false, error: 'UNKNOWN_LOCATION' };
-  if (location.kind === 'base' || location.expeditionTurns <= 0) {
-    return { ok: false, error: 'LOCATION_NOT_EXPLORABLE' };
-  }
-  const squadError = validateSquad(state, memberIds);
-  if (squadError) return { ok: false, error: squadError };
+  const supplies = normalizeSupplies(request);
+  if (error || !location || !supplies) return { ok: false, error: error ?? 'UNKNOWN_LOCATION' };
 
   const [expeditionId, withId] = allocateId(state, 'exp');
   const expedition: Expedition = {
@@ -56,6 +98,7 @@ export function startExpedition(
     memberIds: [...memberIds],
     departedAt: withId.time,
     returnsAt: advanceTurns(withId.time, location.expeditionTurns),
+    supplies,
     haul: {},
     pendingEventId: null,
     seenEventIds: [],
@@ -65,6 +108,13 @@ export function startExpedition(
   const members = new Set(memberIds);
   let next: GameState = {
     ...withId,
+    // Supplies leave the base immediately.
+    resources: applyResourceDelta(withId.resources, {
+      food: -supplies.food,
+      water: -supplies.water,
+      medicine: -supplies.medicine,
+      ammunition: -supplies.ammunition,
+    }),
     expeditions: [...withId.expeditions, expedition],
     characters: updateCharacters(withId.characters, members, (character) => ({
       ...character,
@@ -76,6 +126,7 @@ export function startExpedition(
     expeditionId,
     locationId,
     memberIds: expedition.memberIds,
+    supplies: compactDelta(supplies),
   });
   return { ok: true, state: next, expedition };
 }
@@ -123,15 +174,6 @@ export function rollLoot(
   return { state: { ...state, rng }, loot };
 }
 
-function addDeltas(a: ResourceDelta, b: ResourceDelta): ResourceDelta {
-  const result: Partial<Record<ResourceKind, number>> = {};
-  for (const kind of RESOURCE_KINDS) {
-    const sum = (a[kind] ?? 0) + (b[kind] ?? 0);
-    if (a[kind] !== undefined || b[kind] !== undefined) result[kind] = sum;
-  }
-  return result;
-}
-
 // ---------------------------------------------------------------------------
 // Return
 // ---------------------------------------------------------------------------
@@ -147,17 +189,21 @@ function completeExpedition(
   if (location && !expedition.aborted) {
     const bonus = getScavengingBonusPercent(membersOf(next, expedition.memberIds));
     const rolled = rollLoot(next, location, bonus);
+    const order = location.loot.map((range) => range.resource);
+    const fit = fitFindings(rolled.state, content.items, expedition, rolled.loot, order);
     next = addLogEntry(rolled.state, {
       type: 'lootFound',
       expeditionId: expedition.id,
       locationId: expedition.locationId,
-      loot: rolled.loot,
+      loot: fit.accepted,
       scavengingBonusPercent: bonus,
+      leftBehind: fit.leftBehind,
     });
-    loot = rolled.loot;
+    loot = fit.accepted;
   }
 
-  const delivered = addDeltas(loot, expedition.haul);
+  const suppliesReturned = compactDelta(expedition.supplies);
+  const delivered = compactDelta(addDeltas(addDeltas(suppliesReturned, expedition.haul), loot));
   const members = new Set(expedition.memberIds);
   next = {
     ...next,
@@ -174,6 +220,7 @@ function completeExpedition(
     locationId: expedition.locationId,
     memberIds: expedition.memberIds,
     loot: delivered,
+    suppliesReturned,
     aborted: expedition.aborted,
   });
 }
@@ -224,6 +271,29 @@ export function rollExpeditionEvent(
   });
 }
 
+/** Splits resource effects into costs (negative) and finds (positive), both as positive deltas. */
+function splitResourceEffects(effects: readonly EventEffect[]): {
+  readonly costs: ResourceDelta;
+  readonly finds: ResourceDelta;
+} {
+  const costs: Partial<Record<ResourceKind, number>> = {};
+  const finds: Partial<Record<ResourceKind, number>> = {};
+  for (const effect of effects) {
+    if (effect.type !== 'resources') continue;
+    for (const kind of RESOURCE_KINDS) {
+      const amount = effect.delta[kind] ?? 0;
+      if (amount < 0) costs[kind] = (costs[kind] ?? 0) - amount;
+      if (amount > 0) finds[kind] = (finds[kind] ?? 0) + amount;
+    }
+  }
+  return { costs, finds };
+}
+
+/** Can the squad pick this choice (requirement met)? */
+export function isChoiceAvailable(expedition: Expedition, requires: ResourceDelta | undefined): boolean {
+  return requires === undefined || carriesAtLeast(expedition, requires);
+}
+
 export type ResolveEventResult =
   | { readonly ok: true; readonly state: GameState }
   | { readonly ok: false; readonly error: ExpeditionError };
@@ -246,13 +316,17 @@ export function resolveExpeditionEvent(
   }
   const choice = event.choices.find((c) => c.id === choiceId);
   if (!choice) return { ok: false, error: 'UNKNOWN_CHOICE' };
+  if (choice.requires && !carriesAtLeast(expedition, choice.requires)) {
+    return { ok: false, error: 'CHOICE_UNAVAILABLE' };
+  }
 
   const { outcome, rng } = pickOutcome(state.rng, choice.outcomes);
-  let updated: Expedition = {
-    ...expedition,
-    pendingEventId: null,
-    haul: addDeltas(expedition.haul, sumResourceEffects(outcome.effects)),
-  };
+  const { costs, finds } = splitResourceEffects(outcome.effects);
+  // Costs are paid immediately from the squad's supplies (then haul).
+  const paid = spendFromExpedition({ ...expedition, pendingEventId: null }, costs);
+  // Finds go to the haul, as far as capacity allows.
+  const found = addFindingsToHaul(state, content.items, paid.expedition, finds);
+  let updated: Expedition = found.expedition;
   for (const effect of outcome.effects) {
     if (effect.type === 'delay') {
       updated = { ...updated, returnsAt: advanceTurns(updated.returnsAt, effect.turns) };
@@ -274,6 +348,9 @@ export function resolveExpeditionEvent(
       eventId: event.id,
       choiceId: choice.id,
       outcomeId: outcome.id,
+      spent: paid.spent,
+      gained: found.accepted,
+      leftBehind: found.leftBehind,
     }),
   };
 }

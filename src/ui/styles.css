@@ -150,3 +150,23 @@ button.danger { border-color: var(--danger); color: var(--danger); background: t
 @media (max-width: 700px) {
   .facts div { grid-template-columns: 1fr; gap: 0; }
 }
+
+/* 0.3 */
+button.small, select.small { font-size: 0.8rem; padding: 0.1rem 0.4rem; }
+select { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; }
+.equipment__row { display: flex; flex-wrap: wrap; gap: 0.3rem; align-items: center; padding: 0.1rem 0; }
+.equipment__actions { display: inline-flex; gap: 0.3rem; margin-left: auto; }
+.storage__resources { display: flex; flex-wrap: wrap; gap: 0.4rem; list-style: none; margin: 0 0 0.8rem; padding: 0; }
+.table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.table th, .table td { text-align: left; padding: 0.3rem 0.4rem; border-bottom: 1px solid var(--border); }
+.table th { color: var(--muted); font-weight: 500; }
+.supplies { list-style: none; margin: 0 0 0.6rem; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.supplies__row { display: flex; align-items: center; gap: 0.5rem; }
+.supplies__label { width: 120px; }
+.supplies__value { min-width: 2.5rem; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+.load { font-weight: 700; }
+.load--over { color: var(--danger); }
+p.error { display: block; }
+@media (max-width: 700px) {
+  .table { display: block; overflow-x: auto; }
+}

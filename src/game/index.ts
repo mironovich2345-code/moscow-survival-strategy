@@ -3,6 +3,7 @@ export * from './random';
 export * from './time';
 export * from './resources';
 export * from './characters';
+export * from './inventory';
 export * from './world';
 export * from './events';
 export * from './survival';

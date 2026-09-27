@@ -1,4 +1,5 @@
 import type { EventDefinition, EventId } from '../events';
+import type { ItemDefId, ItemDefinition } from '../inventory';
 import type { ResourceKind } from '../resources';
 
 /**
@@ -47,4 +48,5 @@ export interface GameContent {
   readonly districts: Readonly<Record<DistrictId, DistrictDefinition>>;
   readonly locations: Readonly<Record<LocationId, LocationDefinition>>;
   readonly events: Readonly<Record<EventId, EventDefinition>>;
+  readonly items: Readonly<Record<ItemDefId, ItemDefinition>>;
 }

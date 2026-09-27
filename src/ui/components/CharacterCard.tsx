@@ -1,9 +1,12 @@
-import { ATTRIBUTE_IDS, EQUIPMENT_SLOTS, SKILL_IDS, type Character } from '@game/index';
-import { getItem } from '@data/items';
-import { ATTRIBUTE_LABELS, SKILL_LABELS, SLOT_LABELS } from '../labels';
+import { ATTRIBUTE_IDS, SKILL_IDS, carryCapacity, equipmentWeight, type Character } from '@game/index';
+import { GAME_CONTENT } from '@data/content';
+import { ATTRIBUTE_LABELS, SKILL_LABELS } from '../labels';
+import { useGameStore } from '../store/gameStore';
+import { EquipmentEditor } from './EquipmentEditor';
 
 export function CharacterCard({ character }: { readonly character: Character }) {
   const { condition, assignment } = character;
+  const items = useGameStore((s) => s.game.items);
   return (
     <article className="card character">
       <header className="character__header">
@@ -36,17 +39,11 @@ export function CharacterCard({ character }: { readonly character: Character }) 
           </div>
         ))}
       </dl>
-      <ul className="equipment">
-        {EQUIPMENT_SLOTS.map((slot) => {
-          const itemId = character.equipment[slot];
-          return (
-            <li key={slot}>
-              <span className="muted">{SLOT_LABELS[slot]}:</span>{' '}
-              {itemId ? (getItem(itemId)?.name ?? itemId) : '—'}
-            </li>
-          );
-        })}
-      </ul>
+      <p className="small">
+        Снаряжение: {equipmentWeight(character, items, GAME_CONTENT.items)} /{' '}
+        грузоподъёмность {carryCapacity(character, items, GAME_CONTENT.items)}
+      </p>
+      <EquipmentEditor character={character} />
     </article>
   );
 }

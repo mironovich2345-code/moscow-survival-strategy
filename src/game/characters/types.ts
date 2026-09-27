@@ -4,15 +4,16 @@ export type AttributeId = (typeof ATTRIBUTE_IDS)[number];
 export const SKILL_IDS = ['firearms', 'melee', 'medicine', 'scavenging', 'stealth'] as const;
 export type SkillId = (typeof SKILL_IDS)[number];
 
-export const EQUIPMENT_SLOTS = ['weapon', 'armor', 'backpack'] as const;
+export const EQUIPMENT_SLOTS = ['sidearm', 'primary', 'melee', 'body', 'backpack'] as const;
 export type EquipmentSlot = (typeof EQUIPMENT_SLOTS)[number];
 
 export type CharacterId = string;
-export type ItemId = string;
+/** Stable id of a unique item instance (see src/game/inventory). */
+export type ItemInstanceId = string;
 
 export type Attributes = Readonly<Record<AttributeId, number>>;
 export type Skills = Readonly<Record<SkillId, number>>;
-export type Equipment = Readonly<Record<EquipmentSlot, ItemId | null>>;
+export type Equipment = Readonly<Record<EquipmentSlot, ItemInstanceId | null>>;
 
 export interface CharacterCondition {
   readonly health: number;

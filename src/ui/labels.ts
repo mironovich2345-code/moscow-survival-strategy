@@ -40,8 +40,10 @@ export const SKILL_LABELS: Record<SkillId, string> = {
 };
 
 export const SLOT_LABELS: Record<EquipmentSlot, string> = {
-  weapon: 'Оружие',
-  armor: 'Броня',
+  sidearm: 'Пистолет',
+  primary: 'Основное оружие',
+  melee: 'Ближний бой',
+  body: 'Тело',
   backpack: 'Рюкзак',
 };
 
@@ -57,6 +59,13 @@ export const ERROR_LABELS: Record<GameError, string> = {
   NO_PENDING_EVENT: 'Нет события, требующего решения.',
   UNKNOWN_CHOICE: 'Неизвестный вариант решения.',
   EVENT_PENDING: 'Сначала примите решение по событию экспедиции.',
+  CHOICE_UNAVAILABLE: 'У отряда нет нужных припасов для этого варианта.',
+  INVALID_SUPPLIES: 'Некорректное количество припасов.',
+  NOT_ENOUGH_SUPPLIES: 'На складе нет столько припасов.',
+  OVERLOADED: 'Отряд перегружен: груз больше грузоподъёмности.',
+  ITEM_NOT_FOUND: 'Предмет не найден.',
+  ITEM_UNAVAILABLE: 'Предмет сейчас недоступен (владелец не на базе).',
+  ITEM_ALREADY_THERE: 'Предмет уже там.',
 };
 
 export const RISK_LABELS: Record<RiskLevel, string> = {
@@ -80,6 +89,18 @@ export function formatDelta(delta: ResourceDelta): string {
   return parts.length > 0 ? parts.join(', ') : 'ничего';
 }
 
+function hasAny(delta: ResourceDelta): boolean {
+  return RESOURCE_KINDS.some((kind) => (delta[kind] ?? 0) !== 0);
+}
+
+/** "Вода 2, Патроны 12" (no signs) or "ничего". */
+export function formatAmounts(delta: ResourceDelta): string {
+  const parts = RESOURCE_KINDS.filter((kind) => (delta[kind] ?? 0) !== 0).map(
+    (kind) => `${RESOURCE_LABELS[kind]} ${delta[kind] ?? 0}`,
+  );
+  return parts.length > 0 ? parts.join(', ') : 'ничего';
+}
+
 const CONSUMABLE_LABELS = { food: 'еды', water: 'воды' } as const;
 
 export function describeLogEntry(entry: GameLogEntry, nameOf: (id: string) => string): string {
@@ -89,26 +110,33 @@ export function describeLogEntry(entry: GameLogEntry, nameOf: (id: string) => st
     case 'campaignStarted':
       return 'Десятый день после катастрофы. Группа укрылась в ЖК «Статус».';
     case 'expeditionDeparted':
-      return `Отряд (${entry.memberIds.map(nameOf).join(', ')}) вышел: ${locationName(entry.locationId)}.`;
+      return `Отряд (${entry.memberIds.map(nameOf).join(', ')}) вышел: ${locationName(entry.locationId)}. Взяли: ${formatAmounts(entry.supplies)}.`;
     case 'expeditionEvent':
       return `Событие в пути (${locationName(entry.locationId)}): «${eventOf(entry.eventId)?.title ?? entry.eventId}».`;
     case 'eventChoice': {
       const event = eventOf(entry.eventId);
       const choice = event?.choices.find((c) => c.id === entry.choiceId);
       const outcome = choice?.outcomes.find((o) => o.id === entry.outcomeId);
-      return `Решение: «${choice?.text ?? entry.choiceId}». ${outcome?.text ?? ''}`.trim();
+      const parts = [`Решение: «${choice?.text ?? entry.choiceId}». ${outcome?.text ?? ''}`.trim()];
+      if (hasAny(entry.spent)) parts.push(`Потрачено: ${formatAmounts(entry.spent)}.`);
+      if (hasAny(entry.gained)) parts.push(`Найдено: ${formatAmounts(entry.gained)}.`);
+      if (hasAny(entry.leftBehind)) parts.push(`Не унесли: ${formatAmounts(entry.leftBehind)}.`);
+      return parts.join(' ');
     }
     case 'lootFound': {
       const bonus = entry.scavengingBonusPercent > 0 ? ` (поиск +${entry.scavengingBonusPercent} %)` : '';
-      return `Найдено в локации «${locationName(entry.locationId)}»: ${formatDelta(entry.loot)}${bonus}.`;
+      const left = hasAny(entry.leftBehind) ? ` Не поместилось, осталось на месте: ${formatAmounts(entry.leftBehind)}.` : '';
+      return `Найдено в локации «${locationName(entry.locationId)}»: ${formatDelta(entry.loot)}${bonus}.${left}`;
     }
     case 'expeditionReturned':
-      return entry.aborted
-        ? `Отряд прервал поход в «${locationName(entry.locationId)}» и вернулся. Итог: ${formatDelta(entry.loot)}.`
-        : `Отряд вернулся из локации «${locationName(entry.locationId)}». Итог: ${formatDelta(entry.loot)}.`;
+      return `${
+        entry.aborted
+          ? `Отряд прервал поход в «${locationName(entry.locationId)}» и вернулся.`
+          : `Отряд вернулся из локации «${locationName(entry.locationId)}».`
+      } На склад: ${formatAmounts(entry.loot)} (из них остаток припасов: ${formatAmounts(entry.suppliesReturned)}).`;
     case 'dailyConsumption':
-      return `День ${entry.day}. Суточный расход на ${entry.aliveCount} чел.: еда −${entry.consumed.food ?? 0}, вода −${entry.consumed.water ?? 0}.`;
+      return `День ${entry.day}. ${entry.expeditionId === null ? 'База' : 'Отряд в пути (свои припасы)'}: паёк на ${entry.aliveCount} чел. — еда −${entry.consumed.food ?? 0}, вода −${entry.consumed.water ?? 0}.`;
     case 'shortage':
-      return `Не хватило ${CONSUMABLE_LABELS[entry.resource]}: ${entry.characterIds.map(nameOf).join(', ')}.`;
+      return `${entry.expeditionId === null ? 'На базе' : 'В отряде'} не хватило ${CONSUMABLE_LABELS[entry.resource]}: ${entry.characterIds.map(nameOf).join(', ')}.`;
   }
 }

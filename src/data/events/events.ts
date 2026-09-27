@@ -2,7 +2,9 @@ import type { EventDefinition } from '@game/events';
 
 /**
  * Prototype expedition events (0.2). Text only, no combat.
- * Effects: `resources` → expedition haul, `delay` → +N turns, `abort` → go home without loot.
+ * Effects: `resources` (+ → haul within capacity, − → spent from the squad's supplies),
+ * `delay` → +N turns, `abort` → go home without location loot.
+ * `requires` makes a choice unavailable unless the squad carries that much.
  */
 export const EVENTS = {
   noise_next_building: {
@@ -120,6 +122,7 @@ export const EVENTS = {
       {
         id: 'shoot',
         text: 'Застрелить',
+        requires: { ammunition: 2 },
         outcomes: [
           {
             id: 'shot',

@@ -3,6 +3,7 @@ import { GAME_CONTENT } from '@data/content';
 import { CharacterCard } from '../components/CharacterCard';
 import { EventLog } from '../components/EventLog';
 import { ExpeditionList } from '../components/ExpeditionList';
+import { StoragePanel } from '../components/StoragePanel';
 import { useGameStore } from '../store/gameStore';
 
 export function BaseScreen() {
@@ -40,6 +41,8 @@ export function BaseScreen() {
           ))}
         </div>
       </section>
+
+      <StoragePanel />
 
       <section className="panel">
         <h2>Отряды в пути</h2>

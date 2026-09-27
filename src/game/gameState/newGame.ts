@@ -1,4 +1,5 @@
-import { MAX_GROUP_SIZE, createCharacter } from '../characters';
+import { EQUIPMENT_SLOTS, MAX_GROUP_SIZE, createCharacter } from '../characters';
+import { findItemLocationErrors } from '../inventory';
 import { createRngState } from '../random';
 import { createResources } from '../resources';
 import { CAMPAIGN_START_TIME } from '../time';
@@ -17,6 +18,9 @@ export function createNewGame(setup: NewGameSetup): GameState {
     throw new Error('A new game needs exactly one hero');
   }
 
+  const equipped = new Set(
+    setup.characters.flatMap((c) => EQUIPMENT_SLOTS.map((slot) => c.equipment[slot])),
+  );
   const state: GameState = {
     version: GAME_STATE_VERSION,
     seed: setup.seed,
@@ -25,10 +29,16 @@ export function createNewGame(setup: NewGameSetup): GameState {
     turn: 1,
     baseLocationId: setup.baseLocationId,
     resources: createResources(setup.resources),
+    items: Object.fromEntries(setup.items.map((item) => [item.id, item])),
+    storage: { items: setup.items.filter((item) => !equipped.has(item.id)).map((item) => item.id) },
     characters: setup.characters.map(createCharacter),
     expeditions: [],
     log: [],
     nextId: 1,
   };
+  const itemErrors = findItemLocationErrors(state);
+  if (itemErrors.length > 0) {
+    throw new Error(`Invalid starting items: ${itemErrors.join('; ')}`);
+  }
   return addLogEntry(state, { type: 'campaignStarted' });
 }

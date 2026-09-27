@@ -45,7 +45,7 @@ describe('daily food & water', () => {
     expect(state.resources.food).toBe(start.resources.food - 6);
   });
 
-  it('expedition members eat too', () => {
+  it('base stock only feeds people at the base', () => {
     const sent = applyCommand(
       lateEvening(),
       { type: 'sendExpedition', locationId: LEFORTOVO_POLICE_ID, memberIds: [MAXIM_ID] },
@@ -54,7 +54,9 @@ describe('daily food & water', () => {
     if (!sent.ok) throw new Error(sent.error);
     const state = endTurns(sent.state, 1);
     expect(state.expeditions).toHaveLength(1);
-    expect(state.resources.food).toBe(lateEvening().resources.food - 2);
+    // Only the hero ate from the base.
+    expect(state.resources.food).toBe(lateEvening().resources.food - 1);
+    expect(state.resources.water).toBe(lateEvening().resources.water - 1);
   });
 
   it('dead characters do not consume', () => {

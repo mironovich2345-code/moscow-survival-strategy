@@ -57,13 +57,13 @@ describe('scavenging skill', () => {
   });
 
   it('a skilled squad brings back more than an unskilled one (same seed)', () => {
+    // Maxim (backpack) has 20 free capacity: pharmacy loot ×2 (max 10) always fits.
     for (const seed of [1, 2, 3, 4, 5]) {
-      const unskilled = setScavenging(newGame(seed), HERO_ID, 0);
-      const skilled = setScavenging(newGame(seed), HERO_ID, 10);
-      const low = runExpedition(unskilled, LEFORTOVO_GROCERY_ID, [HERO_ID]);
-      const high = runExpedition(skilled, LEFORTOVO_GROCERY_ID, [HERO_ID]);
-      expect(high.food).toBe((low.food ?? 0) * 2);
-      expect(high.water).toBe((low.water ?? 0) * 2);
+      const unskilled = setScavenging(newGame(seed), MAXIM_ID, 0);
+      const skilled = setScavenging(newGame(seed), MAXIM_ID, 10);
+      const low = runExpedition(unskilled, LEFORTOVO_PHARMACY_ID, [MAXIM_ID]);
+      const high = runExpedition(skilled, LEFORTOVO_PHARMACY_ID, [MAXIM_ID]);
+      expect(high.medicine).toBe((low.medicine ?? 0) * 2);
     }
   });
 

@@ -1,5 +1,5 @@
 import { findCharacter, formatClock, getDay, turnsUntil } from '@game/index';
-import { formatDelta } from '../labels';
+import { formatAmounts, formatDelta } from '../labels';
 import { GAME_CONTENT } from '@data/content';
 import { useGameStore } from '../store/gameStore';
 
@@ -28,8 +28,9 @@ export function ExpeditionList() {
               Возвращение: день {getDay(expedition.returnsAt)}, {formatClock(expedition.returnsAt)}{' '}
               (через {turnsUntil(now, expedition.returnsAt)} х.)
             </div>
+            <div className="muted">Припасы: {formatAmounts(expedition.supplies)}</div>
             {Object.keys(expedition.haul).length > 0 && (
-              <div className="muted">Несут с собой: {formatDelta(expedition.haul)}</div>
+              <div className="muted">Найдено в пути: {formatDelta(expedition.haul)}</div>
             )}
           </li>
         );

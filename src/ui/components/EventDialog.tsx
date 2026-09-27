@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { findCharacter, type Expedition } from '@game/index';
+import { findCharacter, isChoiceAvailable, type Expedition } from '@game/index';
+import { formatAmounts } from '../labels';
 import { GAME_CONTENT } from '@data/content';
 import { useGameStore } from '../store/gameStore';
 
@@ -68,12 +69,22 @@ export function EventDialog() {
         </p>
         <h2 id="event-title">{event.title}</h2>
         <p>{event.description}</p>
+        <p className="muted small">
+          Припасы отряда: {formatAmounts(pending.supplies)}
+          {Object.keys(pending.haul).length > 0 && <> · найдено: {formatAmounts(pending.haul)}</>}
+        </p>
         <div className="dialog__choices">
-          {event.choices.map((choice) => (
-            <button key={choice.id} type="button" onClick={() => choose(choice.id)}>
-              {choice.text}
-            </button>
-          ))}
+          {event.choices.map((choice) => {
+            const available = isChoiceAvailable(pending, choice.requires);
+            return (
+              <button key={choice.id} type="button" disabled={!available} onClick={() => choose(choice.id)}>
+                {choice.text}
+                {choice.requires && (
+                  <span className="muted small"> (нужно: {formatAmounts(choice.requires)})</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </section>
     </div>

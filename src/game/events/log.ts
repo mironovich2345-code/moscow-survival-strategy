@@ -21,6 +21,8 @@ export type GameLogEntry = LogEntryBase &
         readonly expeditionId: string;
         readonly locationId: LocationId;
         readonly memberIds: readonly CharacterId[];
+        /** What the squad took from the base. */
+        readonly supplies: ResourceDelta;
       }
     | {
         readonly type: 'expeditionEvent';
@@ -34,6 +36,12 @@ export type GameLogEntry = LogEntryBase &
         readonly eventId: EventId;
         readonly choiceId: string;
         readonly outcomeId: string;
+        /** Taken from the squad's supplies/haul. */
+        readonly spent: ResourceDelta;
+        /** Added to the haul. */
+        readonly gained: ResourceDelta;
+        /** Found but did not fit into the squad's capacity. */
+        readonly leftBehind: ResourceDelta;
       }
     | {
         readonly type: 'lootFound';
@@ -42,24 +50,31 @@ export type GameLogEntry = LogEntryBase &
         /** Location loot after the scavenging bonus. */
         readonly loot: ResourceDelta;
         readonly scavengingBonusPercent: number;
+        /** Rolled but did not fit into the squad's capacity. */
+        readonly leftBehind: ResourceDelta;
       }
     | {
         readonly type: 'expeditionReturned';
         readonly expeditionId: string;
         readonly locationId: LocationId;
         readonly memberIds: readonly CharacterId[];
-        /** Everything delivered to the base: location loot + haul. */
+        /** Everything delivered to the base: remaining supplies + haul + location loot. */
         readonly loot: ResourceDelta;
+        /** The part of `loot` that is leftover supplies taken from the base. */
+        readonly suppliesReturned: ResourceDelta;
         readonly aborted: boolean;
       }
     | {
         readonly type: 'dailyConsumption';
+        /** null = the base; otherwise the expedition that ate from its own supplies. */
+        readonly expeditionId: string | null;
         readonly day: number;
         readonly aliveCount: number;
         readonly consumed: ResourceDelta;
       }
     | {
         readonly type: 'shortage';
+        readonly expeditionId: string | null;
         readonly resource: Extract<ResourceKind, 'food' | 'water'>;
         readonly characterIds: readonly CharacterId[];
       }

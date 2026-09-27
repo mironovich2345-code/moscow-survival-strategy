@@ -1,5 +1,7 @@
 import { isAlive } from '../characters';
 import type { Character, CharacterId } from '../characters';
+import { spendFromExpedition } from '../expeditions/cargo';
+import type { Expedition } from '../expeditions/types';
 import { addLogEntry } from '../gameState/ids';
 import type { GameState } from '../gameState/types';
 import type { ResourceKind } from '../resources';
@@ -11,11 +13,6 @@ export const WATER_PER_PERSON_PER_DAY = 1;
 
 type Consumable = Extract<ResourceKind, 'food' | 'water'>;
 
-const NEED_FLAG = { food: 'hungry', water: 'thirsty' } as const satisfies Record<
-  Consumable,
-  'hungry' | 'thirsty'
->;
-
 const PER_PERSON: Record<Consumable, number> = {
   food: FOOD_PER_PERSON_PER_DAY,
   water: WATER_PER_PERSON_PER_DAY,
@@ -23,67 +20,128 @@ const PER_PERSON: Record<Consumable, number> = {
 
 interface Distribution {
   readonly consumed: number;
-  readonly remaining: number;
   readonly unfed: ReadonlySet<CharacterId>;
 }
 
 /** Hands out portions in roster order until the stock runs out. */
-function distribute(stock: number, alive: readonly Character[], perPerson: number): Distribution {
+function distribute(stock: number, eaters: readonly Character[], perPerson: number): Distribution {
   let remaining = stock;
   const unfed = new Set<CharacterId>();
-  for (const character of alive) {
+  for (const character of eaters) {
     if (remaining >= perPerson) {
       remaining -= perPerson;
     } else {
       unfed.add(character.id);
     }
   }
-  return { consumed: stock - remaining, remaining, unfed };
+  return { consumed: stock - remaining, unfed };
 }
 
-/**
- * Daily food & water consumption. Every living member (including those on an
- * expedition) needs one portion of each. See docs/GAME_RULES.md.
- */
-export function applyDailyConsumption(state: GameState): GameState {
-  const alive = state.characters.filter(isAlive);
-  if (alive.length === 0) return state;
+interface GroupResult {
+  readonly food: Distribution;
+  readonly water: Distribution;
+}
 
-  const food = distribute(state.resources.food, alive, PER_PERSON.food);
-  const water = distribute(state.resources.water, alive, PER_PERSON.water);
-
-  let next: GameState = {
+/** Sets hungry/thirsty for the group's eaters according to who got a portion. */
+function applyNeeds(state: GameState, eaters: readonly Character[], result: GroupResult): GameState {
+  const ids = new Set(eaters.map((c) => c.id));
+  return {
     ...state,
-    resources: { ...state.resources, food: food.remaining, water: water.remaining },
     characters: state.characters.map((character) =>
-      isAlive(character)
+      ids.has(character.id)
         ? {
             ...character,
             condition: {
               ...character.condition,
-              [NEED_FLAG.food]: food.unfed.has(character.id),
-              [NEED_FLAG.water]: water.unfed.has(character.id),
+              hungry: result.food.unfed.has(character.id),
+              thirsty: result.water.unfed.has(character.id),
             },
           }
         : character,
     ),
   };
+}
 
-  next = addLogEntry(next, {
+function logGroup(
+  state: GameState,
+  expeditionId: string | null,
+  eaters: readonly Character[],
+  result: GroupResult,
+): GameState {
+  let next = addLogEntry(state, {
     type: 'dailyConsumption',
-    day: getDay(next.time),
-    aliveCount: alive.length,
-    consumed: { food: food.consumed, water: water.consumed },
+    expeditionId,
+    day: getDay(state.time),
+    aliveCount: eaters.length,
+    consumed: { food: result.food.consumed, water: result.water.consumed },
   });
-  for (const [resource, result] of [
-    ['food', food],
-    ['water', water],
+  for (const [resource, distribution] of [
+    ['food', result.food],
+    ['water', result.water],
   ] as const) {
-    if (result.unfed.size > 0) {
-      next = addLogEntry(next, { type: 'shortage', resource, characterIds: [...result.unfed] });
+    if (distribution.unfed.size > 0) {
+      next = addLogEntry(next, {
+        type: 'shortage',
+        expeditionId,
+        resource,
+        characterIds: [...distribution.unfed],
+      });
     }
   }
   return next;
+}
+
+/** Living characters at the base eat from the base stock. */
+function feedBase(state: GameState): GameState {
+  const eaters = state.characters.filter((c) => isAlive(c) && c.assignment.type === 'base');
+  if (eaters.length === 0) return state;
+  const result: GroupResult = {
+    food: distribute(state.resources.food, eaters, PER_PERSON.food),
+    water: distribute(state.resources.water, eaters, PER_PERSON.water),
+  };
+  const next: GameState = {
+    ...state,
+    resources: {
+      ...state.resources,
+      food: state.resources.food - result.food.consumed,
+      water: state.resources.water - result.water.consumed,
+    },
+  };
+  return logGroup(applyNeeds(next, eaters, result), null, eaters, result);
+}
+
+/** Living members of an expedition eat from its own supplies (then haul). */
+function feedExpedition(state: GameState, expedition: Expedition): GameState {
+  const members = new Set(expedition.memberIds);
+  // Roster order, same rule as at the base.
+  const eaters = state.characters.filter((c) => members.has(c.id) && isAlive(c));
+  if (eaters.length === 0) return state;
+  const stock = (kind: Consumable) => (expedition.supplies[kind] ?? 0) + (expedition.haul[kind] ?? 0);
+  const result: GroupResult = {
+    food: distribute(stock('food'), eaters, PER_PERSON.food),
+    water: distribute(stock('water'), eaters, PER_PERSON.water),
+  };
+  const { expedition: fed } = spendFromExpedition(expedition, {
+    food: result.food.consumed,
+    water: result.water.consumed,
+  });
+  const next: GameState = {
+    ...state,
+    expeditions: state.expeditions.map((e) => (e.id === fed.id ? fed : e)),
+  };
+  return logGroup(applyNeeds(next, eaters, result), expedition.id, eaters, result);
+}
+
+/**
+ * Daily food & water consumption, computed separately for the base and for
+ * every expedition. See docs/GAME_RULES.md «Еда и вода».
+ */
+export function applyDailyConsumption(state: GameState): GameState {
+  const afterBase = feedBase(state);
+  return afterBase.expeditions.reduce(
+    (current, expedition) => feedExpedition(current, expedition),
+    afterBase,
+  );
 }
 
 /** Number of day boundaries (00:00) crossed when moving from `from` to `to`. */

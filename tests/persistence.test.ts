@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { HERO_ID } from '@data/characters';
+import { HERO_ID, MAXIM_ID } from '@data/characters';
+import { PM_PISTOL_1 } from '@data/items';
 import { LEFORTOVO_PHARMACY_ID } from '@data/locations';
 import {
   GAME_STATE_VERSION,
@@ -13,6 +14,7 @@ import {
   loadGame,
   saveGame,
 } from '@game/gameState';
+import { SAVE_V1, SAVE_V2 } from './fixtures/saves';
 import { MemoryStorage, content, endTurns, newGame, quietContent } from './helpers';
 
 describe('persistence', () => {
@@ -67,30 +69,16 @@ describe('persistence', () => {
   });
 });
 
-describe('save format v2', () => {
-  function toV1(state: GameState): unknown {
-    return {
-      ...state,
-      version: 1,
-      characters: state.characters.map(({ condition, ...rest }) => ({
-        ...rest,
-        condition: { health: condition.health, maxHealth: condition.maxHealth },
-      })),
-      expeditions: state.expeditions.map(
-        ({ haul: _h, pendingEventId: _p, seenEventIds: _s, aborted: _a, ...rest }) => rest,
-      ),
-      log: state.log.map((entry) => {
-        if (entry.type !== 'expeditionReturned') return entry;
-        const { aborted: _aborted, ...rest } = entry;
-        return rest;
-      }),
-    };
-  }
-
+describe('save format v3', () => {
   function midExpedition(seed = 3): GameState {
     const result = applyCommand(
       newGame(seed),
-      { type: 'sendExpedition', locationId: LEFORTOVO_PHARMACY_ID, memberIds: [HERO_ID] },
+      {
+        type: 'sendExpedition',
+        locationId: LEFORTOVO_PHARMACY_ID,
+        memberIds: [HERO_ID, MAXIM_ID],
+        supplies: { water: 2, ammunition: 12, medicine: 1 },
+      },
       quietContent,
     );
     if (!result.ok) throw new Error(result.error);
@@ -100,48 +88,106 @@ describe('save format v2', () => {
   it('saves the current version', () => {
     const storage = new MemoryStorage();
     saveGame(storage, newGame());
-    expect(JSON.parse(storage.getItem(SAVE_KEY)!)).toMatchObject({ version: GAME_STATE_VERSION });
-    expect(GAME_STATE_VERSION).toBe(2);
+    expect(GAME_STATE_VERSION).toBe(3);
+    expect(JSON.parse(storage.getItem(SAVE_KEY)!)).toMatchObject({ version: 3 });
   });
 
-  it('round-trips hunger flags, pending event, haul and new log entries', () => {
-    const base = newGame(3);
-    // Night with no food: produces dailyConsumption + shortage entries and hungry flags.
-    const hungry = endTurns({ ...base, resources: { ...base.resources, food: 0 } }, 8);
-    const trip = midExpedition(3).expeditions[0]!;
-    const state: GameState = {
-      ...hungry,
+  it('round-trips items, storage, equipment, supplies, haul, pending event and hunger', () => {
+    let state = midExpedition();
+    const [trip] = state.expeditions;
+    state = {
+      ...state,
       expeditions: [
-        { ...trip, pendingEventId: 'locked_door', seenEventIds: ['locked_door'], haul: { water: 2, ammunition: -1 } },
+        { ...trip!, pendingEventId: 'locked_door', seenEventIds: ['locked_door'], haul: { water: 2 } },
       ],
+      characters: state.characters.map((c) => ({ ...c, condition: { ...c.condition, hungry: true } })),
     };
-    expect(state.characters.every((c) => c.condition.hungry)).toBe(true);
-    expect(state.log.some((e) => e.type === 'shortage')).toBe(true);
+    // Put something into storage too.
+    const withStorage: GameState = {
+      ...state,
+      items: { ...state.items, 'fire_axe-2': { id: 'fire_axe-2', defId: 'fire_axe' } },
+      storage: { items: ['fire_axe-2'] },
+    };
 
     const storage = new MemoryStorage();
-    saveGame(storage, state);
-    expect(loadGame(storage)).toEqual(state);
+    saveGame(storage, withStorage);
+    expect(loadGame(storage)).toEqual(withStorage);
   });
 
-  it('migrates a v1 save (no pending expedition)', () => {
-    const v2 = endTurns(newGame(4), 3);
-    const migrated = deserializeGame(JSON.stringify(toV1(v2)));
-    expect(migrated).toEqual(v2);
+  it('rejects a save where one item is in two places', () => {
+    const state = newGame();
+    const broken: GameState = { ...state, storage: { items: [PM_PISTOL_1] } }; // also on the hero
+    expect(deserializeGame(JSON.stringify(broken))).toBeNull();
+    const orphan: GameState = {
+      ...state,
+      items: { ...state.items, 'x-1': { id: 'x-1', defId: 'fire_axe' } },
+    };
+    expect(deserializeGame(JSON.stringify(orphan))).toBeNull();
   });
 
-  it('migrates a v1 save with an active expedition, which then plays on', () => {
-    const v2 = midExpedition(6);
-    const migrated = deserializeGame(JSON.stringify(toV1(v2)));
+  it('migrates a 0.2 (v2) save', () => {
+    const migrated = deserializeGame(JSON.stringify(SAVE_V2));
     expect(migrated).not.toBeNull();
-    expect(migrated!.expeditions[0]).toMatchObject({
-      haul: {},
-      pendingEventId: null,
-      seenEventIds: [],
-      aborted: false,
+    const state = migrated!;
+
+    // Items became instances in the new slots.
+    expect(state.items).toEqual({
+      'pm_pistol-1': { id: 'pm_pistol-1', defId: 'pm_pistol' },
+      'work_jacket-1': { id: 'work_jacket-1', defId: 'work_jacket' },
+      'fire_axe-1': { id: 'fire_axe-1', defId: 'fire_axe' },
+      'tourist_backpack-1': { id: 'tourist_backpack-1', defId: 'tourist_backpack' },
     });
-    const home = endTurns(migrated!, 3);
+    expect(state.storage.items).toEqual([]);
+    const hero = state.characters.find((c) => c.id === HERO_ID)!;
+    const maxim = state.characters.find((c) => c.id === MAXIM_ID)!;
+    expect(hero.equipment).toEqual({
+      sidearm: 'pm_pistol-1',
+      primary: null,
+      melee: null,
+      body: 'work_jacket-1',
+      backpack: null,
+    });
+    expect(maxim.equipment).toMatchObject({ melee: 'fire_axe-1', backpack: 'tourist_backpack-1' });
+    expect(maxim.condition.hungry).toBe(true);
+
+    // Expedition: empty supplies, only positive haul; the 0.2 ammo cost is charged now.
+    expect(state.expeditions[0]).toMatchObject({
+      supplies: { food: 0, water: 0, medicine: 0, ammunition: 0 },
+      haul: { water: 2 },
+      pendingEventId: 'locked_door',
+    });
+    expect(state.resources.ammunition).toBe(SAVE_V2.resources.ammunition - 2);
+
+    // Old log entries got the new fields.
+    const byType = (type: string) => state.log.find((e) => e.type === type);
+    expect(byType('dailyConsumption')).toMatchObject({ expeditionId: null });
+    expect(byType('expeditionDeparted')).toMatchObject({ supplies: {} });
+    expect(byType('eventChoice')).toMatchObject({ spent: {}, gained: {}, leftBehind: {} });
+    expect(byType('expeditionReturned')).toMatchObject({ suppliesReturned: {} });
+  });
+
+  it('a migrated v2 game plays on: event, return, loot', () => {
+    let state = deserializeGame(JSON.stringify(SAVE_V2))!;
+    const resolved = applyCommand(
+      state,
+      { type: 'resolveEvent', expeditionId: 'exp-5', choiceId: 'leave' },
+      content,
+    );
+    if (!resolved.ok) throw new Error(resolved.error);
+    state = endTurns(resolved.state, 2, quietContent);
+    expect(state.expeditions).toHaveLength(0);
+    expect(state.resources.water).toBe(SAVE_V2.resources.water + 2);
+    expect(state.resources.ammunition).toBeGreaterThan(SAVE_V2.resources.ammunition - 2);
+  });
+
+  it('migrates a 0.1 (v1) save through v2 to v3', () => {
+    const state = deserializeGame(JSON.stringify(SAVE_V1));
+    expect(state).not.toBeNull();
+    expect(state!.version).toBe(3);
+    expect(state!.expeditions[0]).toMatchObject({ supplies: { food: 0 }, haul: {}, aborted: false });
+    const home = endTurns(state!, 2);
     expect(home.expeditions).toHaveLength(0);
-    expect(home.resources.medicine).toBeGreaterThan(v2.resources.medicine);
+    expect(home.resources.medicine).toBeGreaterThan(SAVE_V1.resources.medicine);
   });
 
   it('never throws on broken storage', () => {
@@ -155,7 +201,7 @@ describe('save format v2', () => {
     expect(loadGame(broken)).toBeNull();
 
     const storage = new MemoryStorage();
-    for (const junk of ['', 'null', '[]', '{"version":1}', '{"version":"2"}', '{"version":0}']) {
+    for (const junk of ['', 'null', '[]', '{"version":1}', '{"version":2}', '{"version":"3"}', '{"version":0}']) {
       storage.setItem(SAVE_KEY, junk);
       expect(loadGame(storage)).toBeNull();
     }

@@ -21,7 +21,8 @@ describe('characters', () => {
     const maxim = createCharacter(MAXIM);
     expect(maxim.attributes.strength).toBeGreaterThan(0);
     expect(maxim.skills.melee).toBeGreaterThan(0);
-    expect(maxim.equipment.weapon).toBe('fire_axe');
+    expect(maxim.equipment.melee).toBe('fire_axe-1');
+    expect(maxim.equipment.backpack).toBe('tourist_backpack-1');
     expect(maxim.condition.health).toBe(maxim.condition.maxHealth);
   });
 

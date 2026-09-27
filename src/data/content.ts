@@ -3,6 +3,7 @@ import type { GameContent } from '@game/world';
 import { STARTING_CHARACTERS } from './characters';
 import { DISTRICTS } from './districts';
 import { EVENTS } from './events';
+import { ITEMS, STARTING_ITEMS } from './items';
 import { BASE_LOCATION_ID, LOCATIONS } from './locations';
 
 /** All static content, bundled for the game logic. */
@@ -10,6 +11,7 @@ export const GAME_CONTENT: GameContent = {
   districts: DISTRICTS,
   locations: LOCATIONS,
   events: EVENTS,
+  items: ITEMS,
 };
 
 export const STARTING_RESOURCES = {
@@ -26,6 +28,7 @@ export function createPrototypeSetup(seed: number): NewGameSetup {
     seed,
     baseLocationId: BASE_LOCATION_ID,
     characters: STARTING_CHARACTERS,
+    items: STARTING_ITEMS,
     resources: STARTING_RESOURCES,
   };
 }

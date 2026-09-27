@@ -1,5 +1,6 @@
 import type { CharacterId } from '../characters';
 import type { EventId } from '../events';
+import type { Supplies } from '../inventory';
 import type { ResourceDelta } from '../resources';
 import type { GameHour } from '../time';
 import type { LocationId } from '../world';
@@ -21,7 +22,9 @@ export interface Expedition {
   readonly memberIds: readonly CharacterId[];
   readonly departedAt: GameHour;
   readonly returnsAt: GameHour;
-  /** Resources gained/lost through events, delivered on return. */
+  /** Taken from the base at departure; spent on the way; leftovers return to storage. */
+  readonly supplies: Supplies;
+  /** Found on the way (events). Never negative. Delivered to storage on return. */
   readonly haul: ResourceDelta;
   /** Event waiting for the player's decision; the expedition is paused. */
   readonly pendingEventId: EventId | null;
@@ -41,4 +44,8 @@ export type ExpeditionError =
   | 'CHARACTER_UNAVAILABLE'
   | 'EXPEDITION_NOT_FOUND'
   | 'NO_PENDING_EVENT'
-  | 'UNKNOWN_CHOICE';
+  | 'UNKNOWN_CHOICE'
+  | 'CHOICE_UNAVAILABLE'
+  | 'INVALID_SUPPLIES'
+  | 'NOT_ENOUGH_SUPPLIES'
+  | 'OVERLOADED';

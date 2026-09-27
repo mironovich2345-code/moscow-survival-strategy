@@ -1,4 +1,5 @@
 import { ATTRIBUTE_IDS, EQUIPMENT_SLOTS, SKILL_IDS } from '../characters';
+import { SUPPLY_KINDS, findItemLocationErrors } from '../inventory';
 import { RESOURCE_KINDS } from '../resources';
 import { GAME_STATE_VERSION } from './types';
 import type { GameState } from './types';
@@ -60,6 +61,7 @@ function isExpedition(value: unknown): boolean {
     value.memberIds.every((id) => typeof id === 'string') &&
     isFiniteNumber(value.departedAt) &&
     isFiniteNumber(value.returnsAt) &&
+    hasNumberFields(value.supplies, SUPPLY_KINDS) &&
     isRecord(value.haul) &&
     Object.values(value.haul).every(isFiniteNumber) &&
     (value.pendingEventId === null || typeof value.pendingEventId === 'string') &&
@@ -69,8 +71,28 @@ function isExpedition(value: unknown): boolean {
   );
 }
 
-/** Structural validation of untrusted save data. */
+function isItemRegistry(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    Object.entries(value).every(
+      ([key, item]) => isRecord(item) && item.id === key && typeof item.defId === 'string',
+    )
+  );
+}
+
+function isStorage(value: unknown): boolean {
+  return isRecord(value) && Array.isArray(value.items) && value.items.every((id) => typeof id === 'string');
+}
+
+/**
+ * Validation of untrusted save data: structure first, then the invariant
+ * that every unique item is in exactly one place.
+ */
 export function isGameState(value: unknown): value is GameState {
+  return isStructurallyValid(value) && findItemLocationErrors(value).length === 0;
+}
+
+function isStructurallyValid(value: unknown): value is GameState {
   return (
     isRecord(value) &&
     value.version === GAME_STATE_VERSION &&
@@ -81,6 +103,8 @@ export function isGameState(value: unknown): value is GameState {
     isFiniteNumber(value.nextId) &&
     typeof value.baseLocationId === 'string' &&
     hasNumberFields(value.resources, RESOURCE_KINDS) &&
+    isItemRegistry(value.items) &&
+    isStorage(value.storage) &&
     Array.isArray(value.characters) &&
     value.characters.every(isCharacter) &&
     Array.isArray(value.expeditions) &&
@@ -122,8 +146,98 @@ function migrateV1toV2(save: UnknownRecord): UnknownRecord {
   };
 }
 
+/** Where the four items that existed in 0.1/0.2 go in the new slot layout. Frozen history. */
+const V2_ITEM_SLOTS: Readonly<Record<string, string>> = {
+  pm_pistol: 'sidearm',
+  fire_axe: 'melee',
+  work_jacket: 'body',
+  tourist_backpack: 'backpack',
+};
+const V2_FALLBACK_SLOTS: Readonly<Record<string, string>> = {
+  weapon: 'primary',
+  armor: 'body',
+  backpack: 'backpack',
+};
+
+/** Fills missing fields of old log entries with empty values. */
+function migrateLogEntryV2toV3(entry: UnknownRecord): UnknownRecord {
+  switch (entry.type) {
+    case 'expeditionDeparted':
+      return { supplies: {}, ...entry };
+    case 'eventChoice':
+      return { spent: {}, gained: {}, leftBehind: {}, ...entry };
+    case 'lootFound':
+      return { leftBehind: {}, ...entry };
+    case 'expeditionReturned':
+      return { suppliesReturned: {}, ...entry };
+    case 'dailyConsumption':
+    case 'shortage':
+      return { expeditionId: null, ...entry };
+    default:
+      return entry;
+  }
+}
+
+/**
+ * v2 → v3: item instances + storage, new equipment slots, expedition supplies.
+ * Negative v2 haul (costs that 0.2 charged on return) is charged to the base now.
+ */
+function migrateV2toV3(save: UnknownRecord): UnknownRecord {
+  const items: Record<string, { id: string; defId: string }> = {};
+  const storage: string[] = [];
+  const newItem = (defId: string): string => {
+    let n = 1;
+    while (items[`${defId}-${n}`]) n += 1;
+    const id = `${defId}-${n}`;
+    items[id] = { id, defId };
+    return id;
+  };
+
+  const characters = mapArray(save.characters, (character) => {
+    const old = isRecord(character.equipment) ? character.equipment : {};
+    const equipment: Record<string, string | null> = Object.fromEntries(
+      EQUIPMENT_SLOTS.map((slot) => [slot, null]),
+    );
+    for (const oldSlot of ['weapon', 'armor', 'backpack']) {
+      const defId = old[oldSlot];
+      if (typeof defId !== 'string') continue;
+      const id = newItem(defId);
+      const slot = V2_ITEM_SLOTS[defId] ?? V2_FALLBACK_SLOTS[oldSlot] ?? 'primary';
+      if (equipment[slot] === null) equipment[slot] = id;
+      else storage.push(id);
+    }
+    return { ...character, equipment };
+  });
+
+  const resources: Record<string, unknown> = isRecord(save.resources) ? { ...save.resources } : {};
+  const expeditions = mapArray(save.expeditions, (expedition) => {
+    const haul: Record<string, number> = {};
+    if (isRecord(expedition.haul)) {
+      for (const [kind, amount] of Object.entries(expedition.haul)) {
+        if (!isFiniteNumber(amount)) continue;
+        if (amount > 0) haul[kind] = amount;
+        const stock = resources[kind];
+        if (amount < 0 && isFiniteNumber(stock)) resources[kind] = Math.max(0, stock + amount);
+      }
+    }
+    return { ...expedition, supplies: { food: 0, water: 0, medicine: 0, ammunition: 0 }, haul };
+  });
+
+  return {
+    ...save,
+    version: 3,
+    resources,
+    items,
+    storage: { items: storage },
+    characters,
+    expeditions,
+    log: mapArray(save.log, migrateLogEntryV2toV3),
+  };
+}
+
 const MIGRATIONS: Readonly<Record<number, (save: UnknownRecord) => UnknownRecord>> = {
   1: migrateV1toV2,
+  2: migrateV2toV3,
 };
 
 /** Brings an old save up to GAME_STATE_VERSION and validates it. Null if impossible. */

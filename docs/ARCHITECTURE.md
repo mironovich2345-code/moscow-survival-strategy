@@ -38,9 +38,10 @@ src/data  ──(типы)──►  src/game  ◄──(команды/сост
 | `random/` | Детерминированный RNG (mulberry32), `nextFloat`, `nextInt` |
 | `time/` | Абсолютные игровые часы, ход = 2 ч, форматирование |
 | `resources/` | Тип `Resources`, дельты, проверки стоимости |
-| `characters/` | Типы персонажа, ростер, лимит группы |
+| `characters/` | Типы персонажа (слоты экипировки), ростер, лимит группы |
+| `inventory/` | Уникальные предметы (`ItemInstance`), склад, `moveItem`, инвариант «один предмет — одно место», вес и грузоподъёмность |
 | `world/` | Типы районов, локаций, таблиц добычи, `GameContent` |
-| `expeditions/` | Отправка отряда, добыча с бонусом поиска, события в пути (бросок, пауза, решение), возвращение |
+| `expeditions/` | Отправка отряда с припасами, `cargo.ts` (supplies/haul: расход, находки с учётом вместимости), добыча с бонусом поиска, события в пути, возвращение |
 | `events/` | Типы событий экспедиций (`EventDefinition`, `EventEffect`), выбор исхода, журнал (`GameLogEntry`) |
 | `survival/` | Суточный расход еды и воды, голод/жажда |
 | `gameState/` | `GameState`, новая игра, команды, сохранение/загрузка |
@@ -64,6 +65,23 @@ src/data  ──(типы)──►  src/game  ◄──(команды/сост
 
 Порядок обработки хода — `docs/GAME_RULES.md`, раздел «Порядок обработки хода».
 
+## Инвентарь (0.3)
+
+```
+GameState.items    { [instanceId]: { id, defId } }   ← реестр всех уникальных предметов
+GameState.storage  { items: instanceId[] }            ← лежат на складе
+Character.equipment{ sidearm|primary|melee|body|backpack: instanceId | null }
+GameState.resources                                   ← расходники базы + fuel/materials
+Expedition.supplies / Expedition.haul                 ← что отряд взял / что нашёл
+```
+
+- Определения предметов (название, слот, вес, `capacityBonus`) — контент
+  (`GameContent.items`, `src/data/items`). В state — только экземпляры.
+- Все перемещения предметов — через `moveItem`; `findItemLocationErrors`
+  проверяет инвариант (в тестах и при загрузке сейва).
+- Вес и вместимость — чистые функции (`resourceWeight`, `carryCapacity`,
+  `squadLoad`, `fitIntoCapacity`), UI вызывает их же для превью.
+
 ## Как расширять
 
 - **Новое действие игрока:** вариант в `GameCommand` + обработчик в
@@ -75,6 +93,8 @@ src/data  ──(типы)──►  src/game  ◄──(команды/сост
   `resolveExpeditionEvent` + тесты.
 - **События вне экспедиций (база, район):** тот же `EventDefinition`,
   но нужен свой «владелец» паузы вместо `Expedition.pendingEventId`.
-- **Бой / инвентарь / фракции:** отдельные модули в `src/game/`, их state —
+- **Новый предмет:** запись в `src/data/items/items.ts`; для выдачи в игре —
+  экземпляр в реестре `items` с новым ID (`allocateId`).
+- **Бой / фракции:** отдельные модули в `src/game/`, их state —
   новые поля `GameState` + увеличение `GAME_STATE_VERSION` + миграция в
   `persistence.ts`.
