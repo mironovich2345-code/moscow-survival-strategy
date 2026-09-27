@@ -94,6 +94,20 @@ export const ERROR_LABELS: Record<GameError, string> = {
   ITEM_NOT_FOUND: 'Предмет не найден.',
   ITEM_UNAVAILABLE: 'Предмет сейчас недоступен (владелец не на базе).',
   ITEM_ALREADY_THERE: 'Предмет уже там.',
+  COMBAT_ACTIVE: 'Идёт бой — сначала завершите его.',
+  NO_COMBAT: 'Боя нет.',
+  COMBAT_OVER: 'Бой уже окончен.',
+  COMBAT_NOT_OVER: 'Бой ещё идёт.',
+  NOT_A_COMBATANT: 'Персонаж не участвует в бою.',
+  NOT_IN_SETUP: 'Расстановку можно менять только до первого раунда.',
+  LINE_FULL: 'В этой линии уже 3 человека.',
+  NO_WEAPON: 'В этом слоте нет оружия.',
+  MELEE_FROM_BACK: 'Ближним оружием можно бить только из первой линии.',
+  NO_AMMUNITION: 'Нет патронов.',
+  UNKNOWN_TARGET: 'Нет такой цели.',
+  NO_MEDICINE: 'У отряда нет медикаментов.',
+  INVALID_ENEMY_COUNT: 'Заражённых должно быть от 1 до 4.',
+  EXPEDITION_BUSY: 'Эта экспедиция сейчас не может вступить в бой.',
 };
 
 export const RISK_LABELS: Record<RiskLevel, string> = {
@@ -168,9 +182,22 @@ export function describeLogEntry(entry: GameLogEntry, nameOf: (id: string) => st
           : `Отряд вернулся из локации «${locationName(entry.locationId)}».`
       } На склад: ${formatAmounts(entry.loot)} (из них остаток припасов: ${formatAmounts(entry.suppliesReturned)})${
         entry.items.length > 0 ? `; предметы: ${entry.items.length}` : ''
-      }.`;
+      }${entry.itemsLost.length > 0 ? `. Вещи павших брошены: ${entry.itemsLost.length}` : ''}.`;
     case 'dailyConsumption':
       return `День ${entry.day}. ${entry.expeditionId === null ? 'База' : 'Отряд в пути (свои припасы)'}: паёк на ${entry.aliveCount} чел. — еда −${entry.consumed.food ?? 0}, вода −${entry.consumed.water ?? 0}.`;
+    case 'combatStarted':
+      return `Бой (${locationName(entry.locationId)}): заражённых — ${entry.enemies}.`;
+    case 'combatEnded': {
+      const result = { victory: 'победа', retreated: 'отступление', defeat: 'гибель отряда', setup: '—', active: '—' }[entry.result];
+      const fallen = entry.fallen.length > 0 ? ` Погибли: ${entry.fallen.map(nameOf).join(', ')}.` : '';
+      return `Бой окончен: ${result} (раундов: ${entry.rounds}).${fallen}`;
+    }
+    case 'characterDied':
+      return `${nameOf(entry.characterId)} погиб.`;
+    case 'expeditionLost':
+      return `Отряд в локации «${locationName(entry.locationId)}» погиб. Вещи остались там: ${
+        entry.itemsLost.length > 0 ? entry.itemsLost.length : 'нет'
+      }.`;
     case 'shortage':
       return `${entry.expeditionId === null ? 'На базе' : 'В отряде'} не хватило ${CONSUMABLE_LABELS[entry.resource]}: ${entry.characterIds.map(nameOf).join(', ')}.`;
   }

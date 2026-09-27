@@ -69,6 +69,10 @@ export function StoragePanel() {
                     ? 'на складе'
                     : location?.type === 'expedition'
                       ? 'найден, в грузе отряда'
+                      : location?.type === 'fallen'
+                        ? 'у павшего (в походе)'
+                        : location?.type === 'world'
+                          ? `потерян: ${GAME_CONTENT.locations[location.locationId]?.name ?? location.locationId}`
                       : `экипирован: ${owner?.name ?? '?'}${ownerAway ? ' (в походе)' : ''}`}
                 </td>
                 <td>

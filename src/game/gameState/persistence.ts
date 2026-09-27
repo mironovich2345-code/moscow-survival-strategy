@@ -48,6 +48,7 @@ function isCharacter(value: unknown): boolean {
     EQUIPMENT_SLOTS.every((slot) => equipment[slot] === null || typeof equipment[slot] === 'string') &&
     isRecord(assignment) &&
     (assignment.type === 'base' ||
+      assignment.type === 'dead' ||
       (assignment.type === 'expedition' && typeof assignment.expeditionId === 'string'))
   );
 }
@@ -68,10 +69,64 @@ function isExpedition(value: unknown): boolean {
     isFiniteNumber(value.searchAt) &&
     typeof value.searched === 'boolean' &&
     value.haulItems.every((id) => typeof id === 'string') &&
+    isStringArray(value.lostItems) &&
     (value.pendingEventId === null || typeof value.pendingEventId === 'string') &&
     Array.isArray(value.seenEventIds) &&
     value.seenEventIds.every((id) => typeof id === 'string') &&
     typeof value.aborted === 'boolean'
+  );
+}
+
+function isStringArray(value: unknown): boolean {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string');
+}
+
+function isLostItem(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.itemId === 'string' &&
+    typeof value.locationId === 'string' &&
+    isFiniteNumber(value.at)
+  );
+}
+
+const COMBAT_STATUSES = ['setup', 'active', 'victory', 'retreated', 'defeat'];
+
+function isCombatEnemy(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    value.typeId === 'infected' &&
+    isFiniteNumber(value.number) &&
+    isFiniteNumber(value.health) &&
+    isFiniteNumber(value.maxHealth)
+  );
+}
+
+/** A saved fight: null, or a structurally sound CombatState. */
+function isCombat(value: unknown): boolean {
+  if (value === null) return true;
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.expeditionId === 'string' &&
+    typeof value.locationId === 'string' &&
+    isFiniteNumber(value.startedAt) &&
+    isFiniteNumber(value.round) &&
+    typeof value.status === 'string' &&
+    COMBAT_STATUSES.includes(value.status) &&
+    isRecord(value.positions) &&
+    Object.values(value.positions).every((line) => line === 'front' || line === 'back') &&
+    Array.isArray(value.enemies) &&
+    value.enemies.every(isCombatEnemy) &&
+    isRecord(value.selectedActions) &&
+    Object.values(value.selectedActions).every((action) => isRecord(action) && typeof action.type === 'string') &&
+    isStringArray(value.defending) &&
+    isFiniteNumber(value.combatNoise) &&
+    isFiniteNumber(value.reinforcementCount) &&
+    isFiniteNumber(value.nextEnemyNumber) &&
+    isStringArray(value.fallen) &&
+    Array.isArray(value.log)
   );
 }
 
@@ -109,6 +164,9 @@ function isStructurallyValid(value: unknown): value is GameState {
     hasNumberFields(value.resources, RESOURCE_KINDS) &&
     isItemRegistry(value.items) &&
     isStorage(value.storage) &&
+    Array.isArray(value.lostItems) &&
+    value.lostItems.every(isLostItem) &&
+    isCombat(value.combat) &&
     Array.isArray(value.characters) &&
     value.characters.every(isCharacter) &&
     Array.isArray(value.expeditions) &&
@@ -259,10 +317,25 @@ function migrateV3toV4(save: UnknownRecord): UnknownRecord {
   };
 }
 
+/** v4 → v5: combat, items lost in the world, fallen members' items per expedition. */
+function migrateV4toV5(save: UnknownRecord): UnknownRecord {
+  return {
+    ...save,
+    version: 5,
+    combat: null,
+    lostItems: [],
+    expeditions: mapArray(save.expeditions, (expedition) => ({ lostItems: [], ...expedition })),
+    log: mapArray(save.log, (entry) =>
+      entry.type === 'expeditionReturned' ? { itemsLost: [], ...entry } : entry,
+    ),
+  };
+}
+
 const MIGRATIONS: Readonly<Record<number, (save: UnknownRecord) => UnknownRecord>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
   3: migrateV3toV4,
+  4: migrateV4toV5,
 };
 
 /** Brings an old save up to GAME_STATE_VERSION and validates it. Null if impossible. */

@@ -33,6 +33,8 @@ export function createNewGame(setup: NewGameSetup): GameState {
     storage: { items: setup.items.filter((item) => !equipped.has(item.id)).map((item) => item.id) },
     characters: setup.characters.map(createCharacter),
     expeditions: [],
+    lostItems: [],
+    combat: null,
     log: [],
     nextId: 1,
   };

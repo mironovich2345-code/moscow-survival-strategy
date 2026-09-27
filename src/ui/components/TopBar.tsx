@@ -14,7 +14,8 @@ export function TopBar({ screen, onNavigate }: TopBarProps) {
   const turn = useGameStore((s) => s.game.turn);
   const resources = useGameStore((s) => s.game.resources);
   const dispatch = useGameStore((s) => s.dispatch);
-  const awaiting = useGameStore((s) => isAwaitingDecision(s.game, GAME_CONTENT));
+  const awaiting = useGameStore((s) => s.game.combat !== null || isAwaitingDecision(s.game, GAME_CONTENT));
+  const inCombat = useGameStore((s) => s.game.combat !== null);
 
   return (
     <header className="topbar">
@@ -55,7 +56,7 @@ export function TopBar({ screen, onNavigate }: TopBarProps) {
           title={awaiting ? 'Сначала примите решение по событию' : undefined}
           onClick={() => dispatch({ type: 'endTurn' })}
         >
-          {awaiting ? 'Ждёт решения…' : 'Следующий ход (+2 ч)'}
+          {inCombat ? 'Идёт бой…' : awaiting ? 'Ждёт решения…' : 'Следующий ход (+2 ч)'}
         </button>
       </nav>
     </header>

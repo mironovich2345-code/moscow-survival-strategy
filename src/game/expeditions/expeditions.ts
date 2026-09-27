@@ -1,5 +1,6 @@
 import { findCharacter, isAvailableForSquad, updateCharacters } from '../characters';
 import type { Character, CharacterId } from '../characters';
+import { startCombat } from '../combat/combat';
 import { pickOutcome } from '../events';
 import type { EventEffect } from '../events';
 import { SUPPLY_KINDS, emptySupplies, squadLoad } from '../inventory';
@@ -104,6 +105,7 @@ export function startExpedition(
     supplies,
     haul: {},
     haulItems: [],
+    lostItems: [],
     pendingEventId: null,
     seenEventIds: [],
     aborted: false,
@@ -244,6 +246,11 @@ function completeExpedition(state: GameState, expedition: Expedition): GameState
     ...state,
     resources: applyResourceDelta(state.resources, delivered),
     storage: { items: [...state.storage.items, ...expedition.haulItems] },
+    // Fallen members' items nobody picked up stay in the location.
+    lostItems: [
+      ...state.lostItems,
+      ...expedition.lostItems.map((itemId) => ({ itemId, locationId: expedition.locationId, at: state.time })),
+    ],
     expeditions: state.expeditions.filter((e) => e.id !== expedition.id),
     characters: updateCharacters(state.characters, members, (character) => ({
       ...character,
@@ -258,6 +265,7 @@ function completeExpedition(state: GameState, expedition: Expedition): GameState
     loot: delivered,
     suppliesReturned,
     items: expedition.haulItems,
+    itemsLost: expedition.lostItems,
     aborted: expedition.aborted,
   });
 }
@@ -353,6 +361,7 @@ export function resolveExpeditionEvent(
   }
   const choice = event.choices.find((c) => c.id === choiceId);
   if (!choice) return { ok: false, error: 'UNKNOWN_CHOICE' };
+  if (state.combat) return { ok: false, error: 'COMBAT_ACTIVE' };
   if (choice.requires && !carriesAtLeast(expedition, choice.requires)) {
     return { ok: false, error: 'CHOICE_UNAVAILABLE' };
   }
@@ -381,20 +390,25 @@ export function resolveExpeditionEvent(
     }
   }
 
-  const next = replaceExpedition({ ...state, rng }, updated);
-  return {
-    ok: true,
-    state: addLogEntry(next, {
-      type: 'eventChoice',
-      expeditionId,
-      eventId: event.id,
-      choiceId: choice.id,
-      outcomeId: outcome.id,
-      spent: paid.spent,
-      gained: found.accepted,
-      leftBehind: found.leftBehind,
-    }),
-  };
+  let next = replaceExpedition({ ...state, rng }, updated);
+  next = addLogEntry(next, {
+    type: 'eventChoice',
+    expeditionId,
+    eventId: event.id,
+    choiceId: choice.id,
+    outcomeId: outcome.id,
+    spent: paid.spent,
+    gained: found.accepted,
+    leftBehind: found.leftBehind,
+  });
+  // A `combat` effect opens the fight right away.
+  const fight = outcome.effects.find((effect) => effect.type === 'combat');
+  if (fight?.type === 'combat') {
+    const started = startCombat(next, expeditionId, fight.enemies);
+    if (!started.ok) return { ok: false, error: 'COMBAT_ACTIVE' };
+    next = started.state;
+  }
+  return { ok: true, state: next };
 }
 
 // ---------------------------------------------------------------------------

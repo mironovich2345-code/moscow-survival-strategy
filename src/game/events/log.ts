@@ -69,6 +69,8 @@ export type GameLogEntry = LogEntryBase &
         readonly suppliesReturned: ResourceDelta;
         /** Unique items moved to storage. */
         readonly items: readonly ItemInstanceId[];
+        /** Fallen members' items nobody carried home: left in the location. */
+        readonly itemsLost: readonly ItemInstanceId[];
         readonly aborted: boolean;
       }
     | {
@@ -78,6 +80,26 @@ export type GameLogEntry = LogEntryBase &
         readonly day: number;
         readonly aliveCount: number;
         readonly consumed: ResourceDelta;
+      }
+    | {
+        readonly type: 'combatStarted';
+        readonly expeditionId: string;
+        readonly locationId: LocationId;
+        readonly enemies: number;
+      }
+    | {
+        readonly type: 'combatEnded';
+        readonly expeditionId: string;
+        readonly result: 'setup' | 'active' | 'victory' | 'retreated' | 'defeat';
+        readonly rounds: number;
+        readonly fallen: readonly CharacterId[];
+      }
+    | { readonly type: 'characterDied'; readonly characterId: CharacterId; readonly expeditionId: string }
+    | {
+        readonly type: 'expeditionLost';
+        readonly expeditionId: string;
+        readonly locationId: LocationId;
+        readonly itemsLost: readonly ItemInstanceId[];
       }
     | {
         readonly type: 'shortage';

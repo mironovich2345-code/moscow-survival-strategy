@@ -173,3 +173,23 @@ p.error { display: block; }
 
 /* 0.3.1 */
 .found ul { margin: 0.1rem 0 0; padding-left: 1.2rem; }
+.status--expedition { color: var(--accent); }
+.status--dead { color: var(--danger); }
+
+/* 0.4 — combat */
+.combat__stats { display: flex; flex-wrap: wrap; gap: 0.4rem 1.5rem; list-style: none; margin: 0; padding: 0; }
+.combat__status--victory { color: var(--ok); }
+.combat__status--defeat, .combat__status--retreated { color: var(--danger); }
+.combat__field { display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; }
+.combat__units { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0.6rem; }
+.combat__enemies { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.combat__controls { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; }
+.combatant__action { display: flex; flex-direction: column; gap: 0.3rem; }
+.combatant.dead, .card.dead { opacity: 0.5; }
+.hp { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin: 0.2rem 0 0.4rem; }
+.hp__fill { height: 100%; background: var(--ok); }
+.dead .hp__fill { background: var(--danger); }
+.dev { margin-top: 0.3rem; padding: 0.2rem 0.4rem; border: 1px dashed var(--accent); border-radius: 4px; color: var(--accent); }
+@media (max-width: 800px) {
+  .combat__field { grid-template-columns: 1fr; }
+}

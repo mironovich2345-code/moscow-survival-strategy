@@ -37,6 +37,7 @@ export function ExpeditionList() {
             )}
             <div className="muted">Припасы: {formatAmounts(expedition.supplies)}</div>
             <FoundItems haul={expedition.haul} haulItems={expedition.haulItems} />
+            {isDevMode() && <DevCombatButtons expeditionId={expedition.id} />}
           </li>
         );
       })}
@@ -65,6 +66,36 @@ function FoundItems({
           <li key={line}>{line}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** DEV tool: visible only in `npm run dev` or with `?dev` in the URL. Not part of the game UI. */
+function isDevMode(): boolean {
+  if (import.meta.env.DEV) return true;
+  try {
+    return new URLSearchParams(window.location.search).has('dev');
+  } catch {
+    return false;
+  }
+}
+
+function DevCombatButtons({ expeditionId }: { readonly expeditionId: string }) {
+  const dispatch = useGameStore((s) => s.dispatch);
+  return (
+    <div className="dev small">
+      DEV: бой с{' '}
+      {[1, 2, 3, 4].map((n) => (
+        <button
+          key={n}
+          type="button"
+          className="small"
+          onClick={() => dispatch({ type: 'startCombat', expeditionId, enemies: n })}
+        >
+          {n}
+        </button>
+      ))}{' '}
+      заражёнными
     </div>
   );
 }

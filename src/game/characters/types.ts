@@ -27,7 +27,9 @@ export interface CharacterCondition {
 /** Where the character is right now. Extend with new variants (e.g. 'wounded', 'guard'). */
 export type CharacterAssignment =
   | { readonly type: 'base' }
-  | { readonly type: 'expedition'; readonly expeditionId: string };
+  | { readonly type: 'expedition'; readonly expeditionId: string }
+  /** Killed. Stays in the roster for history; never acts, eats or returns. */
+  | { readonly type: 'dead' };
 
 export interface Character {
   readonly id: CharacterId;

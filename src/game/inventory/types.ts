@@ -16,6 +16,12 @@ export interface WeaponStats {
   readonly ammoPerAttack: number;
 }
 
+/** Protective parameters of body armour. */
+export interface ArmorStats {
+  /** % of incoming damage removed. */
+  readonly damageReductionPercent: number;
+}
+
 /** Static description of an item type. Lives in src/data/items. */
 export interface ItemDefinition {
   readonly id: ItemDefId;
@@ -28,6 +34,7 @@ export interface ItemDefinition {
   /** Extra carry capacity while equipped (backpacks). */
   readonly capacityBonus: number;
   readonly weapon?: WeaponStats;
+  readonly armor?: ArmorStats;
   readonly description: string;
 }
 
@@ -47,7 +54,18 @@ export type ItemLocation =
   | { readonly type: 'storage' }
   | { readonly type: 'character'; readonly characterId: string; readonly slot: EquipmentSlot }
   /** Found on the way, carried in the haul of an active expedition. */
-  | { readonly type: 'expedition'; readonly expeditionId: string };
+  | { readonly type: 'expedition'; readonly expeditionId: string }
+  /** Belonged to someone who fell during an active expedition. */
+  | { readonly type: 'fallen'; readonly expeditionId: string }
+  /** Lost for good in a location (GameState.lostItems). */
+  | { readonly type: 'world'; readonly locationId: string };
+
+/** An item left lying in the world. */
+export interface LostItem {
+  readonly itemId: string;
+  readonly locationId: string;
+  readonly at: number;
+}
 
 /** Resources a squad can take with it. */
 export const SUPPLY_KINDS = ['food', 'water', 'medicine', 'ammunition'] as const;

@@ -8,6 +8,7 @@ import {
 } from '@data/locations';
 import { takeFoundItems, type Expedition } from '@game/expeditions';
 import {
+  GAME_STATE_VERSION,
   applyCommand,
   deserializeGame,
   loadGame,
@@ -92,7 +93,7 @@ describe('item catalogue', () => {
       expect(['sidearm', 'primary', 'melee', 'body', 'backpack']).toContain(def.slot);
       if (def.category === 'firearm' || def.category === 'melee') expect(def.weapon).toBeDefined();
     }
-    expect(ITEMS.pump_shotgun.weapon).toEqual({ damage: 8, noise: 9, ammoPerAttack: 1 });
+    expect(ITEMS.pump_shotgun.weapon).toEqual({ damage: 60, noise: 10, ammoPerAttack: 1 });
     expect(ITEMS.crowbar.weapon.ammoPerAttack).toBe(0);
     expect(ITEMS.city_backpack.capacityBonus).toBeGreaterThan(0);
   });
@@ -256,7 +257,7 @@ describe('save migrations to v4', () => {
   it('v3 → v4: haulItems added, item ids untouched, game plays on', () => {
     const state = deserializeGame(JSON.stringify(SAVE_V3));
     expect(state).not.toBeNull();
-    expect(state!.version).toBe(4);
+    expect(state!.version).toBe(GAME_STATE_VERSION);
     expect(state!.items).toEqual(SAVE_V3.items);
     expect(state!.storage).toEqual(SAVE_V3.storage);
     expect(trip(state!)).toMatchObject({
@@ -279,7 +280,7 @@ describe('save migrations to v4', () => {
   it('v1 and v2 still migrate through the whole chain', () => {
     for (const save of [SAVE_V1, SAVE_V2]) {
       const state = deserializeGame(JSON.stringify(save));
-      expect(state?.version).toBe(4);
+      expect(state?.version).toBe(GAME_STATE_VERSION);
       expect(state!.expeditions.every((e) => Array.isArray(e.haulItems))).toBe(true);
       expect(state!.items[PM_PISTOL_1]).toBeDefined();
       expect(state!.items[TOURIST_BACKPACK_1]).toBeDefined();

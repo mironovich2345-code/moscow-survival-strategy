@@ -27,8 +27,13 @@ export function isAvailableForSquad(character: Character): boolean {
   return isAtBase(character) && isAlive(character);
 }
 
+/** The dead stay in the roster for history but do not count towards the group limit. */
+export function groupSize(characters: readonly Character[]): number {
+  return characters.filter((c) => c.assignment.type !== 'dead').length;
+}
+
 export function canAddToGroup(characters: readonly Character[]): boolean {
-  return characters.length < MAX_GROUP_SIZE;
+  return groupSize(characters) < MAX_GROUP_SIZE;
 }
 
 export type AddCharacterResult =

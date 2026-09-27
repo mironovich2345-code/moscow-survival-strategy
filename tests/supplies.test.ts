@@ -143,9 +143,7 @@ describe('events use the squad supplies', () => {
     expect(choose(paused([HERO_ID], { ammunition: 2 }), 'guarded').ok).toBe(true);
   });
 
-  it('the real «Застрелить» needs 2 ammunition', () => {
-    const shoot = EVENTS.lone_infected.choices.find((c) => c.id === 'shoot');
-    expect(shoot && 'requires' in shoot ? shoot.requires : undefined).toEqual({ ammunition: 2 });
+  it('every real event keeps at least one choice without requirements', () => {
     for (const event of Object.values(EVENTS) as readonly EventDefinition[]) {
       expect(event.choices.some((c) => c.requires === undefined)).toBe(true);
     }

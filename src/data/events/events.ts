@@ -3,7 +3,7 @@ import type { EventDefinition } from '@game/events';
 /**
  * Prototype expedition events (0.2). Text only, no combat.
  * Effects: `resources` (+ → haul within capacity, − → spent from the squad's supplies),
- * `delay` → +N turns, `abort` → go home without location loot.
+ * `delay` → +N turns, `abort` → go home without location loot, `combat` → a fight.
  * `requires` makes a choice unavailable unless the squad carries that much.
  */
 export const EVENTS = {
@@ -120,39 +120,32 @@ export const EVENTS = {
     description: 'Посреди улицы стоит заражённый в форме курьера. Он пока не заметил отряд.',
     choices: [
       {
-        id: 'shoot',
-        text: 'Застрелить',
-        requires: { ammunition: 2 },
+        id: 'fight',
+        text: 'Вступить в бой',
         outcomes: [
           {
-            id: 'shot',
+            id: 'engaged',
             weight: 1,
-            text: 'Пара выстрелов — и путь свободен. Патроны потрачены.',
-            effects: [{ type: 'resources', delta: { ammunition: -2 } }],
+            text: 'Отряд атакует первым.',
+            effects: [{ type: 'combat', enemies: 1 }],
           },
         ],
       },
       {
-        id: 'sneak',
-        text: 'Переждать и обойти',
+        id: 'avoid',
+        text: 'Попытаться избежать столкновения',
         outcomes: [
           {
-            id: 'waited',
-            weight: 1,
-            text: 'Заражённый ушёл сам, но ждать пришлось долго.',
+            id: 'avoided',
+            weight: 70,
+            text: 'Отряд переждал в подъезде и обошёл заражённого дворами.',
             effects: [{ type: 'delay', turns: 1 }],
           },
-        ],
-      },
-      {
-        id: 'retreat',
-        text: 'Вернуться на базу',
-        outcomes: [
           {
-            id: 'retreated',
-            weight: 1,
-            text: 'Отряд разворачивается и идёт домой ни с чем.',
-            effects: [{ type: 'abort' }],
+            id: 'noticed',
+            weight: 30,
+            text: 'Заражённый заметил движение и бросился на отряд.',
+            effects: [{ type: 'combat', enemies: 1 }],
           },
         ],
       },

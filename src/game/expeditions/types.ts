@@ -31,6 +31,8 @@ export interface Expedition {
   readonly haul: ResourceDelta;
   /** Unique items found on the way (instance ids). Moved to storage on return. */
   readonly haulItems: readonly ItemInstanceId[];
+  /** Equipment of members who fell. Picked up after a victory if it fits; else lost. */
+  readonly lostItems: readonly ItemInstanceId[];
   /** Event waiting for the player's decision; the expedition is paused. */
   readonly pendingEventId: EventId | null;
   /** Events already met on this trip (no repeats within one expedition). */
@@ -53,4 +55,5 @@ export type ExpeditionError =
   | 'CHOICE_UNAVAILABLE'
   | 'INVALID_SUPPLIES'
   | 'NOT_ENOUGH_SUPPLIES'
-  | 'OVERLOADED';
+  | 'OVERLOADED'
+  | 'COMBAT_ACTIVE';

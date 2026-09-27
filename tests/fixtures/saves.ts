@@ -210,3 +210,29 @@ export const SAVE_V3 = {
   ],
   nextId: 6,
 };
+
+/** Prototype 0.3.1: SAVE_V3's trip after the mid-trip search found a crowbar. */
+export const SAVE_V4 = {
+  ...SAVE_V3,
+  version: 4,
+  items: { ...SAVE_V3.items, 'crowbar-6': { id: 'crowbar-6', defId: 'crowbar' } },
+  expeditions: [
+    {
+      ...SAVE_V3.expeditions[0]!,
+      haul: { water: 2, ammunition: 9 },
+      haulItems: ['crowbar-6'],
+      searched: true,
+      searchAt: 230,
+    },
+  ],
+  log: [
+    ...SAVE_V3.log.map((entry) =>
+      entry.type === 'lootFound'
+        ? { ...entry, items: [], itemsLeftBehind: [] }
+        : entry.type === 'expeditionReturned'
+          ? { ...entry, items: [] }
+          : entry,
+    ),
+  ],
+  nextId: 7,
+};

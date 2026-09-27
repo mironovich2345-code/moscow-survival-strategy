@@ -14,7 +14,9 @@ export type EventEffect =
   /** Pushes the expedition's return back by N turns. */
   | { readonly type: 'delay'; readonly turns: number }
   /** Expedition gives up the search and heads home: no location loot. */
-  | { readonly type: 'abort' };
+  | { readonly type: 'abort' }
+  /** Starts a fight against N ordinary infected. */
+  | { readonly type: 'combat'; readonly enemies: number };
 
 export interface EventOutcome {
   readonly id: string;

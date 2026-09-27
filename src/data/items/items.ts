@@ -1,8 +1,8 @@
 import type { ItemDefinition, ItemInstance } from '@game/inventory';
 
 /**
- * Prototype item catalogue. Weights and capacity bonuses are temporary
- * balance — see docs/GAME_RULES.md «Вес и грузоподъёмность».
+ * Prototype item catalogue. Weights, capacity, weapon and armour numbers are
+ * temporary balance — see docs/GAME_RULES.md «Вес и грузоподъёмность».
  */
 export const ITEMS = {
   // --- Starting items (0.1–0.3) ---
@@ -13,7 +13,7 @@ export const ITEMS = {
     slot: 'sidearm',
     weight: 1,
     capacityBonus: 0,
-    weapon: { damage: 3, noise: 6, ammoPerAttack: 1 },
+    weapon: { damage: 30, noise: 6, ammoPerAttack: 1 },
     description: 'Табельный ПМ. Надёжный, но слабый.',
   },
   fire_axe: {
@@ -23,7 +23,7 @@ export const ITEMS = {
     slot: 'melee',
     weight: 3,
     capacityBonus: 0,
-    weapon: { damage: 5, noise: 1, ammoPerAttack: 0 },
+    weapon: { damage: 40, noise: 1, ammoPerAttack: 0 },
     description: 'Снят со щита в подъезде.',
   },
   work_jacket: {
@@ -33,6 +33,7 @@ export const ITEMS = {
     slot: 'body',
     weight: 2,
     capacityBonus: 0,
+    armor: { damageReductionPercent: 5 },
     description: 'Плотная ткань, немного защищает от укусов.',
   },
   tourist_backpack: {
@@ -52,7 +53,7 @@ export const ITEMS = {
     slot: 'primary',
     weight: 4,
     capacityBonus: 0,
-    weapon: { damage: 8, noise: 9, ammoPerAttack: 1 },
+    weapon: { damage: 60, noise: 10, ammoPerAttack: 1 },
     description: 'Оружие из оружейной комнаты отдела полиции. Громкое.',
   },
   police_vest: {
@@ -62,6 +63,7 @@ export const ITEMS = {
     slot: 'body',
     weight: 5,
     capacityBonus: 0,
+    armor: { damageReductionPercent: 25 },
     description: 'Тяжёлый, но надёжно закрывает корпус.',
   },
   city_backpack: {
@@ -80,7 +82,7 @@ export const ITEMS = {
     slot: 'melee',
     weight: 2,
     capacityBonus: 0,
-    weapon: { damage: 3, noise: 1, ammoPerAttack: 0 },
+    weapon: { damage: 25, noise: 1, ammoPerAttack: 0 },
     description: 'Инструмент из багажника. Годится и как оружие.',
   },
 } as const satisfies Record<string, ItemDefinition>;

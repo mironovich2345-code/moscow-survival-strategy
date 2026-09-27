@@ -14,8 +14,8 @@ export function CharacterCard({ character }: { readonly character: Character }) 
           {character.name}
           {character.isHero && <span className="tag">герой</span>}
         </h3>
-        <span className={assignment.type === 'base' ? 'status status--base' : 'status status--away'}>
-          {assignment.type === 'base' ? 'на базе' : 'в походе'}
+        <span className={`status status--${assignment.type}`}>
+          {{ base: 'на базе', expedition: 'в походе', dead: 'погиб' }[assignment.type]}
         </span>
       </header>
       <p>

@@ -42,6 +42,7 @@ src/data  ──(типы)──►  src/game  ◄──(команды/сост
 | `inventory/` | Уникальные предметы (`ItemInstance`), склад, `moveItem`, инвариант «один предмет — одно место», вес и грузоподъёмность |
 | `world/` | Типы районов, локаций, таблиц добычи, `GameContent` |
 | `expeditions/` | Отправка отряда с припасами, `cargo.ts` (supplies/haul: расход, находки с учётом вместимости), добыча с бонусом поиска, события в пути, возвращение |
+| `combat/` | Бой (0.4): `CombatState`, формулы (`rules.ts`: попадание, броня, отступление, подкрепления), движок раунда, смерть и вещи павших |
 | `events/` | Типы событий экспедиций (`EventDefinition`, `EventEffect`), выбор исхода, журнал (`GameLogEntry`) |
 | `survival/` | Суточный расход еды и воды, голод/жажда |
 | `gameState/` | `GameState`, новая игра, команды, сохранение/загрузка |
@@ -86,6 +87,28 @@ Expedition.supplies / Expedition.haul                 ← что отряд вз
 - Обыск локации — в середине похода (`searchAt`), см. GAME_RULES.
 - Вес и вместимость — чистые функции (`resourceWeight`, `carryCapacity`,
   `squadLoad`, `fitIntoCapacity`), UI вызывает их же для превью.
+
+## Бой (0.4)
+
+```
+GameState.combat: CombatState | null      ← один бой; сохраняется вместе с игрой
+  positions        { characterId: 'front'|'back' }
+  enemies          CombatEnemy[]            ← health заражённых
+  selectedActions  { characterId: CombatAction }
+  combatNoise, reinforcementCount, round, status, log (структурный)
+Character.condition.health                  ← раны персонажей живут в персонаже
+Expedition.lostItems / GameState.lostItems  ← вещи павших / потерянные в мире
+```
+
+- Команды: `startCombat` (событие или DEV), `setCombatPosition`,
+  `setCombatAction`, `confirmCombatRound`, `retreatFromCombat`, `closeCombat`.
+- Все броски — из `GameState.rng`, порядок фиксирован (действия игроков по
+  списку группы → заражённые по порядку → подкрепление).
+- Пока `combat !== null`, `endTurn` отклоняется (`COMBAT_ACTIVE`) — мир стоит.
+- Формулы — чистые функции в `combat/rules.ts`; UI использует их же
+  (шанс отступления, валидация действий через `validateCombatAction`).
+- `CombatScreen` показывается вместо остальных экранов, пока идёт бой.
+  DEV-кнопка старта боя — только в dev-сборке или с `?dev`.
 
 ## Как расширять
 

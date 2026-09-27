@@ -1,5 +1,6 @@
 import type { Character, CharacterTemplate } from '../characters';
-import type { ItemInstance, Storage } from '../inventory';
+import type { CombatState } from '../combat/types';
+import type { ItemInstance, LostItem, Storage } from '../inventory';
 import type { GameLogEntry } from '../events';
 import type { Expedition } from '../expeditions/types';
 import type { RngState } from '../random';
@@ -8,7 +9,7 @@ import type { GameHour } from '../time';
 import type { LocationId } from '../world';
 
 /** Bump when the shape of GameState changes; add a migration in persistence. */
-export const GAME_STATE_VERSION = 4;
+export const GAME_STATE_VERSION = 5;
 
 /**
  * The complete, serialisable state of one campaign. Plain JSON data only:
@@ -31,6 +32,10 @@ export interface GameState {
   readonly storage: Storage;
   readonly characters: readonly Character[];
   readonly expeditions: readonly Expedition[];
+  /** Items lost for good in the world (left behind, dead squads). */
+  readonly lostItems: readonly LostItem[];
+  /** The fight in progress (or its result until closed). One at a time. */
+  readonly combat: CombatState | null;
   readonly log: readonly GameLogEntry[];
   /** Monotonic counter for deterministic ids. */
   readonly nextId: number;

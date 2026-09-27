@@ -1,4 +1,13 @@
 import type { CharacterId, ItemInstanceId } from '../characters';
+import {
+  attemptRetreat,
+  closeCombat,
+  confirmCombatRound,
+  setCombatAction,
+  setCombatPosition,
+  startCombat,
+} from '../combat';
+import type { CombatAction, CombatError, CombatLine } from '../combat';
 import { hasPendingEvent, processExpeditions, resolveExpeditionEvent, startExpedition } from '../expeditions';
 import type { ExpeditionError, SuppliesRequest } from '../expeditions';
 import { moveItem } from '../inventory';
@@ -27,13 +36,20 @@ export type GameCommand =
       readonly itemId: ItemInstanceId;
       readonly to: MoveItemTarget;
     }
+  /** Starts a fight (used by events; exposed to the UI only as a DEV tool). */
+  | { readonly type: 'startCombat'; readonly expeditionId: string; readonly enemies: number }
+  | { readonly type: 'setCombatPosition'; readonly characterId: CharacterId; readonly line: CombatLine }
+  | { readonly type: 'setCombatAction'; readonly characterId: CharacterId; readonly action: CombatAction }
+  | { readonly type: 'confirmCombatRound' }
+  | { readonly type: 'retreatFromCombat' }
+  | { readonly type: 'closeCombat' }
   | {
       readonly type: 'resolveEvent';
       readonly expeditionId: string;
       readonly choiceId: string;
     };
 
-export type GameError = ExpeditionError | ItemError | 'EVENT_PENDING';
+export type GameError = ExpeditionError | ItemError | CombatError | 'EVENT_PENDING';
 
 export type CommandResult =
   | { readonly ok: true; readonly state: GameState }
@@ -65,6 +81,7 @@ export function applyCommand(
 ): CommandResult {
   switch (command.type) {
     case 'endTurn':
+      if (state.combat) return { ok: false, error: 'COMBAT_ACTIVE' };
       if (isAwaitingDecision(state, content)) return { ok: false, error: 'EVENT_PENDING' };
       return { ok: true, state: endTurn(state, content) };
     case 'sendExpedition': {
@@ -79,6 +96,18 @@ export function applyCommand(
     }
     case 'moveItem':
       return moveItem(state, content.items, command.itemId, command.to);
+    case 'startCombat':
+      return startCombat(state, command.expeditionId, command.enemies);
+    case 'setCombatPosition':
+      return setCombatPosition(state, command.characterId, command.line);
+    case 'setCombatAction':
+      return setCombatAction(state, content, command.characterId, command.action);
+    case 'confirmCombatRound':
+      return confirmCombatRound(state, content);
+    case 'retreatFromCombat':
+      return attemptRetreat(state, content);
+    case 'closeCombat':
+      return closeCombat(state);
     case 'resolveEvent':
       return resolveExpeditionEvent(state, content, command.expeditionId, command.choiceId);
   }
