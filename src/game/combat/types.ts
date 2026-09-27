@@ -25,7 +25,8 @@ export interface EnemyType {
 
 /** Temporary balance, see docs/GAME_RULES.md «Бой». */
 export const ENEMY_TYPES: Readonly<Record<EnemyTypeId, EnemyType>> = {
-  infected: { id: 'infected', maxHealth: 70, attackDamage: 18, accuracyPercent: 75, noise: 2 },
+  // 0.4.1: ordinary infected attacks make no combat noise.
+  infected: { id: 'infected', maxHealth: 70, attackDamage: 18, accuracyPercent: 75, noise: 0 },
 };
 
 export interface CombatEnemy {
@@ -70,7 +71,7 @@ export type CombatLogEntry = CombatLogBase &
         readonly actorId: CharacterId;
         readonly reason: 'noAmmunition' | 'noWeapon' | 'meleeFromBack' | 'noTarget';
       }
-    | { readonly type: 'defend'; readonly actorId: CharacterId; readonly byDefault: boolean }
+    | { readonly type: 'defend'; readonly actorId: CharacterId }
     | { readonly type: 'move'; readonly actorId: CharacterId; readonly to: CombatLine }
     | { readonly type: 'moveFailed'; readonly actorId: CharacterId }
     | {
@@ -139,4 +140,6 @@ export type CombatError =
   | 'UNKNOWN_TARGET'
   | 'NO_MEDICINE'
   | 'INVALID_ENEMY_COUNT'
-  | 'EXPEDITION_BUSY';
+  | 'EXPEDITION_BUSY'
+  /** Some living character has no action selected for this round. */
+  | 'MISSING_ACTIONS';

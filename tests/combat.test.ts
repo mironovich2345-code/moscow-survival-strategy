@@ -7,6 +7,7 @@ import {
   ENEMY_TYPES,
   MAX_REINFORCEMENTS,
   hitChance,
+  missingCombatActions,
   incomingDamage,
   reinforcementChance,
   retreatChance,
@@ -71,7 +72,15 @@ const char = (state: GameState, id: string) => state.characters.find((c) => c.id
 const enemy = (state: GameState, i = 0) => combat(state).enemies[i]!;
 const act = (state: GameState, characterId: string, action: CombatAction) =>
   run(state, { type: 'setCombatAction', characterId, action });
-const confirm = (state: GameState) => run(state, { type: 'confirmCombatRound' });
+/**
+ * Explicitly selects DEFEND (a real player command) for everyone still without
+ * an action, then confirms. Since 0.4.1 the game itself never assigns actions.
+ */
+function confirm(state: GameState): GameState {
+  let next = state;
+  for (const id of missingCombatActions(next)) next = act(next, id, { type: 'defend' });
+  return run(next, { type: 'confirmCombatRound' });
+}
 const logOf = <T extends CombatLogEntry['type']>(state: GameState, type: T) =>
   combat(state).log.filter((e): e is Extract<CombatLogEntry, { type: T }> => e.type === type);
 const shoot = (targetId = 'enemy-1'): CombatAction => ({ type: 'attack', weaponSlot: 'sidearm', targetId });
@@ -301,9 +310,29 @@ describe('armour, DEFEND, medicine', () => {
     expect(combat(after).defending).toEqual([]); // reset for the next round
   });
 
-  it('a character without an action defends by default', () => {
-    const after = confirm(fight());
-    expect(logOf(after, 'defend').map((e) => e.byDefault)).toEqual([true, true]);
+  it('a round cannot be confirmed while a living character has no action (no silent DEFEND)', () => {
+    const state = fight();
+    expect(missingCombatActions(state)).toEqual([HERO_ID, MAXIM_ID]);
+    expect(apply(state, { type: 'confirmCombatRound' })).toEqual({ ok: false, error: 'MISSING_ACTIONS' });
+    const half = act(state, HERO_ID, shoot());
+    expect(missingCombatActions(half)).toEqual([MAXIM_ID]);
+    expect(apply(half, { type: 'confirmCombatRound' })).toEqual({ ok: false, error: 'MISSING_ACTIONS' });
+    const full = act(half, MAXIM_ID, { type: 'defend' });
+    expect(missingCombatActions(full)).toEqual([]);
+    const after = run(full, { type: 'confirmCombatRound' });
+    expect(logOf(after, 'defend')).toEqual([{ type: 'defend', actorId: MAXIM_ID, round: 1 }]);
+    // Next round: selections are cleared, the requirement applies again.
+    if (combat(after).status === 'active') {
+      expect(apply(after, { type: 'confirmCombatRound' })).toEqual({ ok: false, error: 'MISSING_ACTIONS' });
+    }
+  });
+
+  it('the dead are not required to act', () => {
+    let state = run(fight(), { type: 'setCombatPosition', characterId: MAXIM_ID, line: 'back' });
+    state = setHealth(state, HERO_ID, 1);
+    state = withRng(state, confirm, (s) => char(s, HERO_ID).condition.health === 0 && combat(s).status === 'active');
+    expect(missingCombatActions(state)).toEqual([MAXIM_ID]);
+    expect(apply(act(state, MAXIM_ID, { type: 'defend' }), { type: 'confirmCombatRound' }).ok).toBe(true);
   });
 
   it('medicine: −1 medicine of the expedition, +30 health (not above max)', () => {
@@ -408,18 +437,29 @@ describe('death and equipment', () => {
 });
 
 describe('noise and reinforcements', () => {
-  it('noise grows by weapon noise per attack and 2 per infected attack', () => {
+  it('noise grows by weapon noise per player attack only', () => {
     const state = act(act(fight({ enemies: 2 }), HERO_ID, shoot()), MAXIM_ID, chop());
     const after = confirm(state);
-    const infectedAttacks = logOf(after, 'enemyAttack').length;
-    expect(combat(after).combatNoise).toBe(6 + 1 + 2 * infectedAttacks);
+    expect(combat(after).combatNoise).toBe(6 + 1);
   });
 
-  it('chance: <15 → 0, ≥15 → 25 %, ≥25 → 50 %', () => {
-    expect(reinforcementChance(14)).toBe(0);
-    expect(reinforcementChance(15)).toBe(25);
-    expect(reinforcementChance(24)).toBe(25);
-    expect(reinforcementChance(25)).toBe(50);
+  it('infected attacks produce no noise', () => {
+    let state = run(fight({ enemies: 4 }), { type: 'setCombatPosition', characterId: MAXIM_ID, line: 'back' });
+    // Three rounds of pure defence: only the infected attack.
+    for (let i = 0; i < 3; i += 1) state = confirm(act(act(state, HERO_ID, { type: 'defend' }), MAXIM_ID, { type: 'defend' }));
+    const attacks = logOf(state, 'enemyAttack');
+    expect(attacks.length).toBeGreaterThan(0);
+    expect(attacks.every((e) => e.noise === 0)).toBe(true);
+    expect(combat(state).combatNoise).toBe(0);
+  });
+
+  it('chance: <20 → 0, 20–34 → 25 %, ≥35 → 50 %', () => {
+    expect(reinforcementChance(0)).toBe(0);
+    expect(reinforcementChance(19)).toBe(0);
+    expect(reinforcementChance(20)).toBe(25);
+    expect(reinforcementChance(34)).toBe(25);
+    expect(reinforcementChance(35)).toBe(50);
+    expect(reinforcementChance(100)).toBe(50);
   });
 
   const noisy = (noise: number, count = 0) => {
@@ -427,29 +467,35 @@ describe('noise and reinforcements', () => {
     return { ...state, combat: { ...combat(state), combatNoise: noise, reinforcementCount: count } };
   };
 
-  it('below the threshold no infected ever comes', () => {
-    for (let rng = 0; rng < 200; rng += 1) {
-      expect(logOf(confirm({ ...noisy(0), rng }), 'reinforcement')).toEqual([]);
+  it('below 20 no infected ever comes', () => {
+    for (let rng = 0; rng < 300; rng += 1) {
+      expect(logOf(confirm({ ...noisy(19), rng }), 'reinforcement')).toEqual([]);
     }
   });
 
   it('above the threshold they come sometimes, deterministically, never more than 3', () => {
-    const comes = withRng(noisy(30), confirm, (s) => logOf(s, 'reinforcement').length === 1);
+    const comes = withRng(noisy(40), confirm, (s) => logOf(s, 'reinforcement').length === 1);
     expect(combat(comes).enemies).toHaveLength(2);
     expect(combat(comes).reinforcementCount).toBe(1);
     expect(enemy(comes, 1)).toMatchObject({ id: 'enemy-2', number: 2, health: 70 });
-    expect(confirm(noisy(30))).toEqual(confirm(noisy(30)));
+    expect(confirm(noisy(40))).toEqual(confirm(noisy(40)));
+    for (const rng of [1, 77, 1234]) {
+      expect(confirm({ ...noisy(20), rng })).toEqual(confirm({ ...noisy(20), rng }));
+    }
     for (let rng = 0; rng < 200; rng += 1) {
       expect(logOf(confirm({ ...noisy(40, MAX_REINFORCEMENTS), rng }), 'reinforcement')).toEqual([]);
     }
     let hits25 = 0;
     let hits50 = 0;
-    for (let rng = 0; rng < 400; rng += 1) {
-      if (logOf(confirm({ ...noisy(15), rng }), 'reinforcement').length) hits25 += 1;
-      if (logOf(confirm({ ...noisy(25), rng }), 'reinforcement').length) hits50 += 1;
+    const runs = 400;
+    for (let rng = 0; rng < runs; rng += 1) {
+      if (logOf(confirm({ ...noisy(20), rng }), 'reinforcement').length) hits25 += 1;
+      if (logOf(confirm({ ...noisy(35), rng }), 'reinforcement').length) hits50 += 1;
     }
-    expect(hits25).toBeGreaterThan(40);
-    expect(hits50).toBeGreaterThan(hits25);
+    expect(hits25 / runs).toBeGreaterThan(0.15);
+    expect(hits25 / runs).toBeLessThan(0.35);
+    expect(hits50 / runs).toBeGreaterThan(0.4);
+    expect(hits50 / runs).toBeLessThan(0.6);
   });
 });
 
@@ -535,7 +581,7 @@ describe('save / load', () => {
 });
 
 describe('enemy type', () => {
-  it('ordinary infected: 70 health, 18 damage, 75 % accuracy, noise 2', () => {
-    expect(ENEMY_TYPES.infected).toEqual({ id: 'infected', maxHealth: 70, attackDamage: 18, accuracyPercent: 75, noise: 2 });
+  it('ordinary infected: 70 health, 18 damage, 75 % accuracy, no noise', () => {
+    expect(ENEMY_TYPES.infected).toEqual({ id: 'infected', maxHealth: 70, attackDamage: 18, accuracyPercent: 75, noise: 0 });
   });
 });

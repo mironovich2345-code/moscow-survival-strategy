@@ -341,12 +341,12 @@ function resolvePlayerAction(
   state: GameState,
   content: GameContent,
   character: Character,
-  action: CombatAction | undefined,
+  action: CombatAction,
 ): GameState {
   const combat = state.combat!;
-  if (!action || action.type === 'defend') {
+  if (action.type === 'defend') {
     const next = setCombat(state, { ...combat, defending: [...combat.defending, character.id] });
-    return log(next, { type: 'defend', actorId: character.id, byDefault: !action });
+    return log(next, { type: 'defend', actorId: character.id });
   }
   switch (action.type) {
     case 'attack':
@@ -449,16 +449,28 @@ function finishRound(state: GameState, content: GameContent): GameState {
   return setCombat(next, { ...combat, round: combat.round + 1, selectedActions: {}, defending: [] });
 }
 
+/** Living combatants who still have no explicitly selected action this round. */
+export function missingCombatActions(state: GameState): CharacterId[] {
+  const combat = state.combat;
+  if (!combat) return [];
+  return livingCombatants(state)
+    .filter((c) => combat.selectedActions[c.id] === undefined)
+    .map((c) => c.id);
+}
+
 export function confirmCombatRound(state: GameState, content: GameContent): CombatResult {
   const combat = state.combat;
   if (!combat) return fail('NO_COMBAT');
   if (isCombatOver(combat)) return fail('COMBAT_OVER');
+  // 0.4.1: every living character must have an explicit action — no silent DEFEND.
+  if (missingCombatActions(state).length > 0) return fail('MISSING_ACTIONS');
 
   let next = setCombat(state, { ...combat, status: 'active', defending: [] });
   for (const character of livingCombatants(next)) {
     const current = findCharacter(next.characters, character.id);
-    if (!current || !isAlive(current)) continue;
-    next = resolvePlayerAction(next, content, current, combat.selectedActions[character.id]);
+    const action = combat.selectedActions[character.id];
+    if (!current || !isAlive(current) || !action) continue;
+    next = resolvePlayerAction(next, content, current, action);
   }
   if (livingEnemies(next.combat!).length === 0) return ok(endCombat(next, 'victory', content));
   return ok(finishRound(next, content));

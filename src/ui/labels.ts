@@ -108,6 +108,7 @@ export const ERROR_LABELS: Record<GameError, string> = {
   NO_MEDICINE: 'У отряда нет медикаментов.',
   INVALID_ENEMY_COUNT: 'Заражённых должно быть от 1 до 4.',
   EXPEDITION_BUSY: 'Эта экспедиция сейчас не может вступить в бой.',
+  MISSING_ACTIONS: 'Выберите действие каждому живому персонажу.',
 };
 
 export const RISK_LABELS: Record<RiskLevel, string> = {

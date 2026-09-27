@@ -17,9 +17,10 @@ export const RETREAT_PER_DIFFERENCE = 10;
 export const RETREAT_MIN = 10;
 export const RETREAT_MAX = 90;
 
+/** Checked from the top: the first threshold reached gives the chance. */
 export const REINFORCEMENT_THRESHOLDS: readonly { readonly noise: number; readonly chance: number }[] = [
-  { noise: 25, chance: 50 },
-  { noise: 15, chance: 25 },
+  { noise: 35, chance: 50 },
+  { noise: 20, chance: 25 },
 ];
 export const MAX_REINFORCEMENTS = 3;
 export const MIN_ENEMIES = 1;
@@ -68,7 +69,7 @@ export function retreatChance(aliveCharacters: number, aliveEnemies: number): nu
   );
 }
 
-/** 50 % at noise ≥ 25, 25 % at ≥ 15, otherwise 0. */
+/** 0 % below 20, 25 % at 20–34, 50 % at 35 and above. */
 export function reinforcementChance(noise: number): number {
   return REINFORCEMENT_THRESHOLDS.find((t) => noise >= t.noise)?.chance ?? 0;
 }

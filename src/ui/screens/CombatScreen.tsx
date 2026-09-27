@@ -6,6 +6,7 @@ import {
   isCombatOver,
   livingCombatants,
   livingEnemies,
+  missingCombatActions,
   retreatChance,
   validateCombatAction,
   type Character,
@@ -38,6 +39,7 @@ export function CombatScreen() {
   const enemiesAlive = livingEnemies(combat);
   const over = isCombatOver(combat);
   const nameOf = (id: string) => findCharacter(game.characters, id)?.name ?? id;
+  const missing = missingCombatActions(game);
   const location = GAME_CONTENT.locations[combat.locationId];
   const squad = [
     ...living,
@@ -60,7 +62,10 @@ export function CombatScreen() {
           </li>
           <li>
             Шум <b>{combat.combatNoise}</b>
-            <span className="muted small"> (подкрепления с 15; пришло {combat.reinforcementCount}/3)</span>
+            <span className="muted small">
+              {' '}
+              (подкрепления: 20+ — 25 %, 35+ — 50 %; пришло {combat.reinforcementCount}/3)
+            </span>
           </li>
           <li>
             Патроны отряда <b>{carried.ammunition ?? 0}</b>
@@ -111,12 +116,20 @@ export function CombatScreen() {
           </>
         ) : (
           <>
-            <button type="button" className="primary" onClick={() => dispatch({ type: 'confirmCombatRound' })}>
+            <button
+              type="button"
+              className="primary"
+              disabled={missing.length > 0}
+              onClick={() => dispatch({ type: 'confirmCombatRound' })}
+            >
               Подтвердить раунд {combat.round}
             </button>
             <button type="button" onClick={() => dispatch({ type: 'retreatFromCombat' })}>
               Отступить всем отрядом (шанс {retreatChance(living.length, enemiesAlive.length)} %)
             </button>
+            {missing.length > 0 && (
+              <span className="error small">Нет действия: {missing.map(nameOf).join(', ')}</span>
+            )}
             {combat.status === 'setup' && (
               <span className="muted small">Расстановку FRONT/BACK можно менять до первого раунда.</span>
             )}
@@ -231,7 +244,9 @@ function CombatantCard({ character }: { readonly character: Character }) {
               aria-label={`Действие: ${character.name}`}
               onChange={(e) => pickType(e.target.value as CombatActionType)}
             >
-              <option value="">— (защита по умолчанию)</option>
+              <option value="" disabled>
+                — выберите действие —
+              </option>
               {(['attack', 'defend', 'move', 'useMedicine'] as const).map((type) => (
                 <option key={type} value={type}>
                   {ACTION_LABELS[type]}
@@ -297,7 +312,7 @@ function CombatantCard({ character }: { readonly character: Character }) {
             </label>
           )}
           <p className="small muted combatant__chosen">
-            Выбрано: {action ? ACTION_LABELS[action.type] : 'защита (по умолчанию)'}
+            Выбрано: {action ? ACTION_LABELS[action.type] : 'ничего — нужно выбрать'}
             {action?.type === 'attack' && ` → ${enemyName(action.targetId)}`}
           </p>
         </div>

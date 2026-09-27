@@ -50,7 +50,7 @@ export function describeCombatLog(entry: CombatLogEntry, nameOf: (id: string) =>
     case 'attackFailed':
       return `${nameOf(entry.actorId)} не может атаковать: ${FAIL_REASONS[entry.reason]}.`;
     case 'defend':
-      return `${nameOf(entry.actorId)} в защите${entry.byDefault ? ' (действие не выбрано)' : ''}.`;
+      return `${nameOf(entry.actorId)} в защите.`;
     case 'move':
       return `${nameOf(entry.actorId)} переходит в ${entry.to === 'front' ? 'FRONT' : 'BACK'}.`;
     case 'moveFailed':
@@ -61,12 +61,13 @@ export function describeCombatLog(entry: CombatLogEntry, nameOf: (id: string) =>
       return `${nameOf(entry.actorId)}: медикаментов не осталось.`;
     case 'enemyAttack': {
       const who = `${enemyName(entry.enemyId)} → ${nameOf(entry.targetId)} (шанс ${entry.chance} %)`;
-      if (!entry.hit) return `${who}: промах, шум +${entry.noise}.`;
+      const noise = entry.noise > 0 ? `, шум +${entry.noise}` : '';
+      if (!entry.hit) return `${who}: промах${noise}.`;
       const mods = [
         entry.armorPercent > 0 ? `броня −${entry.armorPercent} %` : '',
         entry.defended ? 'защита −50 %' : '',
       ].filter(Boolean);
-      return `${who}: урон ${entry.damage}${mods.length ? ` (из ${entry.rawDamage}; ${mods.join(', ')})` : ''}, шум +${entry.noise}.`;
+      return `${who}: урон ${entry.damage}${mods.length ? ` (из ${entry.rawDamage}; ${mods.join(', ')})` : ''}${noise}.`;
     }
     case 'death':
       return `${nameOf(entry.characterId)} погиб. Его вещи (${entry.items.map((id) => id).length}) остались лежать на месте боя.`;
