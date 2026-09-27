@@ -6,6 +6,9 @@ export const LEFORTOVO_GROCERY_ID = 'lefortovo_grocery';
 export const LEFORTOVO_PARKING_ID = 'lefortovo_parking';
 export const LEFORTOVO_POLICE_ID = 'lefortovo_police';
 export const FITNESS_CLUB_ID = 'maxim_fitness_club';
+export const SOKOLINAYA_OUTSKIRTS_ID = 'sokolinaya_outskirts';
+export const ARENA_WAREHOUSE_ID = 'arena_warehouse';
+export const ARENA_GYM_ID = 'arena_gym';
 
 /** Values are prototype balance — see docs/GAME_RULES.md «Локации Лефортово». */
 export const LOCATIONS = {
@@ -87,5 +90,42 @@ export const LOCATIONS = {
     // 2 turns = 4 hours: arrival after 1 turn, back after 2.
     expeditionTurns: 2,
     loot: [{ resource: 'water', min: 0, max: 2 }],
+  },
+  [SOKOLINAYA_OUTSKIRTS_ID]: {
+    id: SOKOLINAYA_OUTSKIRTS_ID,
+    name: 'Окраина промзоны',
+    districtId: 'sokolinaya_gora',
+    kind: 'industrial',
+    description: 'Склады и гаражи на краю промзоны. Говорят, здесь ходят вооружённые люди.',
+    risk: 'medium',
+    expeditionTurns: 3,
+    loot: [
+      { resource: 'materials', min: 1, max: 4 },
+      { resource: 'fuel', min: 0, max: 2 },
+    ],
+  },
+  [ARENA_WAREHOUSE_ID]: {
+    id: ARENA_WAREHOUSE_ID,
+    name: 'Склад Арены',
+    districtId: 'sokolinaya_gora',
+    kind: 'faction_site',
+    description: 'Охраняемый склад. Соваться туда сейчас — самоубийство.',
+    risk: 'high',
+    expeditionTurns: 3,
+    loot: [],
+    restricted: true,
+    hiddenUntilFlag: 'arena_met',
+  },
+  [ARENA_GYM_ID]: {
+    id: ARENA_GYM_ID,
+    name: 'Спортзал Арены',
+    districtId: 'sokolinaya_gora',
+    kind: 'faction_site',
+    description: 'Бывший спортзал, теперь — база Арены.',
+    risk: 'high',
+    expeditionTurns: 3,
+    loot: [],
+    restricted: true,
+    hiddenUntilFlag: 'arena_met',
   },
 } as const satisfies Record<string, LocationDefinition>;

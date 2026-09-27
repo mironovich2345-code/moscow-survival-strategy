@@ -199,3 +199,13 @@ button.link { background: none; border: none; padding: 0; font: inherit; font-we
 button.link:hover { color: var(--accent); }
 .profile { max-width: 640px; max-height: 90vh; overflow-y: auto; }
 .traits { list-style: none; margin: 0; padding: 0; }
+
+/* 0.6 */
+.district__status { display: grid; gap: 0.1rem; margin: 0.3rem 0; }
+.district__status div { display: grid; grid-template-columns: 90px 1fr; gap: 0.4rem; }
+.district__status dt { color: var(--muted); }
+.district__status dd { margin: 0; }
+.threat--low { color: var(--ok); }
+.threat--medium { color: var(--accent); }
+.threat--high, .threat--extreme { color: var(--danger); font-weight: 700; }
+.location--restricted { color: var(--muted); padding: 0.2rem 0; }

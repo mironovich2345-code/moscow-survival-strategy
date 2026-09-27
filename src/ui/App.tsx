@@ -3,10 +3,11 @@ import { EventDialog } from './components/EventDialog';
 import { TopBar } from './components/TopBar';
 import { BaseScreen } from './screens/BaseScreen';
 import { CombatScreen } from './screens/CombatScreen';
+import { FactionsScreen } from './screens/FactionsScreen';
 import { MapScreen } from './screens/MapScreen';
 import { useGameStore } from './store/gameStore';
 
-export type Screen = 'base' | 'map';
+export type Screen = 'base' | 'map' | 'factions';
 
 export function App() {
   const [screen, setScreen] = useState<Screen>('base');
@@ -20,6 +21,8 @@ export function App() {
           <CombatScreen />
         ) : screen === 'base' ? (
           <BaseScreen />
+        ) : screen === 'factions' ? (
+          <FactionsScreen />
         ) : (
           <MapScreen onBack={() => setScreen('base')} />
         )}

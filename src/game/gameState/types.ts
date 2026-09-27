@@ -1,5 +1,7 @@
 import type { Character, CharacterTemplate } from '../characters';
 import type { CombatState } from '../combat/types';
+import type { DistrictState } from '../districts/types';
+import type { FactionState, WorldEvent } from '../factions/types';
 import type { ItemInstance, LostItem, Storage } from '../inventory';
 import type { RecruitState, RecruitmentStatus, Relation, StoryFlags } from '../story/types';
 import type { GameLogEntry } from '../events';
@@ -10,7 +12,7 @@ import type { GameHour } from '../time';
 import type { LocationId } from '../world';
 
 /** Bump when the shape of GameState changes; add a migration in persistence. */
-export const GAME_STATE_VERSION = 6;
+export const GAME_STATE_VERSION = 7;
 
 /**
  * The complete, serialisable state of one campaign. Plain JSON data only:
@@ -43,6 +45,11 @@ export interface GameState {
   readonly recruits: Readonly<Record<string, RecruitState>>;
   /** Attitude of characters towards the hero (trust). */
   readonly relations: Readonly<Record<string, Relation>>;
+  /** Runtime state of every district (noise, threat, controller). */
+  readonly districts: Readonly<Record<string, DistrictState>>;
+  readonly factions: Readonly<Record<string, FactionState>>;
+  /** Hidden simulation record — NOT the player's journal. */
+  readonly worldEvents: readonly WorldEvent[];
   readonly log: readonly GameLogEntry[];
   /** Monotonic counter for deterministic ids. */
   readonly nextId: number;
@@ -58,4 +65,6 @@ export interface NewGameSetup {
   readonly storyFlags: StoryFlags;
   /** Potential recruits and their initial status. */
   readonly recruits: Readonly<Record<string, RecruitmentStatus>>;
+  readonly districts: readonly DistrictState[];
+  readonly factions: readonly FactionState[];
 }

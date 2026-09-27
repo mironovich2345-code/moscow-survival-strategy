@@ -10,4 +10,6 @@ export * from './survival';
 export * from './expeditions';
 export * from './combat';
 export * from './story';
+export * from './districts';
+export * from './factions';
 export * from './gameState';

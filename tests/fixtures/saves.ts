@@ -246,3 +246,14 @@ export const SAVE_V5 = {
   expeditions: SAVE_V4.expeditions.map((e) => ({ ...e, lostItems: [] })),
   log: SAVE_V4.log.map((entry) => (entry.type === 'expeditionReturned' ? { ...entry, itemsLost: [] } : entry)),
 };
+
+/** Prototype 0.5 (v6): SAVE_V5's campaign after the story update (test Maxim kept). */
+export const SAVE_V6 = {
+  ...SAVE_V5,
+  version: 6,
+  characters: SAVE_V5.characters.map((c) => ({ ...c, traits: c.id === 'maxim' ? ['reliable'] : [] })),
+  storyFlags: { maxim_location_known: true, maxim_met: true, maxim_recruited: true },
+  recruits: { maxim: { status: 'recruited' } },
+  relations: { maxim: { trust: 50 } },
+  log: SAVE_V5.log,
+};

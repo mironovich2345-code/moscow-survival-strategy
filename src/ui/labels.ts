@@ -3,8 +3,14 @@ import type {
   EquipmentSlot,
   GameError,
   CombatRole,
+  AwarenessCategory,
+  DistrictController,
+  FactionOperationType,
+  FactionRelationCategory,
   GameLogEntry,
   ItemCategory,
+  ManpowerEstimate,
+  ThreatLevel,
   RecruitmentStatus,
   TrustCategory,
   LootRange,
@@ -74,6 +80,59 @@ export const COMBAT_ROLE_LABELS: Record<CombatRole, string> = {
   support: 'поддержка',
 };
 
+export const CONTROLLER_LABELS: Record<DistrictController, string> = {
+  none: 'никто',
+  arena: 'Арена',
+  player: 'наша группа',
+};
+
+export const THREAT_LABELS: Record<ThreatLevel, string> = {
+  low: 'низкая',
+  medium: 'средняя',
+  high: 'высокая',
+  extreme: 'крайняя',
+};
+
+export const FACTION_RELATION_LABELS: Record<FactionRelationCategory, string> = {
+  unknown: 'Неизвестны друг другу',
+  neutral: 'Нейтрально',
+  tension: 'Напряжённость',
+  hostile: 'Вражда',
+  war: 'Война',
+};
+
+export const AWARENESS_LABELS: Record<AwarenessCategory, string> = {
+  none: 'Не знают о нас',
+  rumors: 'Слышали слухи',
+  knowsGroup: 'Знают о группе',
+  watching: 'Следят',
+  hunting: 'Активно ищут',
+};
+
+export const MANPOWER_LABELS: Record<ManpowerEstimate, string> = {
+  unknown: 'Неизвестно',
+  few: 'Мало',
+  group: 'Заметная группа',
+  many: 'Много',
+};
+
+/** «Замечен патруль» — how an operation looks to an outside observer. */
+export const OPERATION_SEEN_LABELS: Record<FactionOperationType, string> = {
+  patrol: 'Замечен патруль',
+  scavenge: 'Видели, как выносят припасы',
+  intimidate: 'Вооружённые люди шумели и запугивали',
+};
+
+export function districtName(id: string): string {
+  return GAME_CONTENT.districts[id]?.name ?? id;
+}
+
+/** Who did it, as far as the player knows. */
+export function factionDisplayName(factionId: string, identified: boolean): string {
+  const faction = GAME_CONTENT.factions[factionId];
+  return identified ? (faction?.name ?? factionId) : 'Неизвестные вооружённые люди';
+}
+
 export const CATEGORY_LABELS: Record<ItemCategory, string> = {
   firearm: 'огнестрел',
   melee: 'холодное',
@@ -141,6 +200,7 @@ export const ERROR_LABELS: Record<GameError, string> = {
   REQUIRED_MEMBER_MISSING: 'В этом походе обязательно должен участвовать Герой.',
   STORY_FLAG_MISSING: 'Для этого ещё не время.',
   ALREADY_RECRUITED: 'Уже в группе.',
+  LOCATION_RESTRICTED: 'Опасная точка — отправлять туда отряд сейчас нельзя.',
 };
 
 export const RISK_LABELS: Record<RiskLevel, string> = {
@@ -196,6 +256,20 @@ export function describeLogEntry(entry: GameLogEntry, nameOf: (id: string) => st
       return `${nameOf(entry.recruitId)}: ${RECRUIT_STATUS_LABELS[entry.status as RecruitmentStatus] ?? entry.status}.`;
     case 'characterRecruited':
       return `${nameOf(entry.characterId)} присоединился к группе (со своим снаряжением: ${entry.items.length} предм.).`;
+    case 'threatChanged':
+      return `Разведка: угроза в районе ${districtName(entry.districtId)} — ${THREAT_LABELS[entry.to as ThreatLevel] ?? entry.to}.`;
+    case 'districtNoiseRose':
+      return `Разведка: в районе ${districtName(entry.districtId)} стало шумно (+${entry.amount}).`;
+    case 'threatEncounter':
+      return `На отряд в районе ${districtName(entry.districtId)} напали заражённые: ${entry.enemies}.`;
+    case 'factionActivity':
+      return `Разведка: ${districtName(entry.districtId)} — ${OPERATION_SEEN_LABELS[entry.operation as FactionOperationType] ?? entry.operation} (${factionDisplayName(entry.factionId, entry.identified)}).`;
+    case 'factionContact':
+      return `Первый контакт: ${factionDisplayName(entry.factionId, true)}.`;
+    case 'factionRelationChanged':
+      return `${factionDisplayName(entry.factionId, true)}: отношения — ${FACTION_RELATION_LABELS[entry.category as FactionRelationCategory] ?? entry.category}.`;
+    case 'factionAwarenessChanged':
+      return `${factionDisplayName(entry.factionId, true)}: ${(AWARENESS_LABELS[entry.category as AwarenessCategory] ?? entry.category).toLowerCase()}.`;
     case 'trustChanged':
       return `${nameOf(entry.characterId)}: отношение к Герою ${entry.delta >= 0 ? 'улучшилось' : 'ухудшилось'}.`;
     case 'eventChoice': {

@@ -40,6 +40,26 @@ export type GameLogEntry = LogEntryBase &
         readonly expeditionId: string;
         readonly items: readonly ItemInstanceId[];
       }
+    | { readonly type: 'threatChanged'; readonly districtId: string; readonly from: string; readonly to: string }
+    | { readonly type: 'districtNoiseRose'; readonly districtId: string; readonly amount: number; readonly noise: number }
+    | {
+        readonly type: 'threatEncounter';
+        readonly expeditionId: string;
+        readonly districtId: string;
+        readonly threat: string;
+        readonly enemies: number;
+      }
+    | {
+        readonly type: 'factionActivity';
+        readonly factionId: string;
+        readonly operation: string;
+        readonly districtId: string;
+        /** Did the player know who it was (contacted)? */
+        readonly identified: boolean;
+      }
+    | { readonly type: 'factionContact'; readonly factionId: string }
+    | { readonly type: 'factionRelationChanged'; readonly factionId: string; readonly category: string }
+    | { readonly type: 'factionAwarenessChanged'; readonly factionId: string; readonly category: string }
     | {
         readonly type: 'trustChanged';
         readonly characterId: CharacterId;

@@ -132,6 +132,40 @@ function isCombat(value: unknown): boolean {
   );
 }
 
+const CONTROLLERS = ['none', 'arena', 'player'];
+const THREATS = ['low', 'medium', 'high', 'extreme'];
+
+function isDistrictState(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.districtId === 'string' &&
+    typeof value.controller === 'string' &&
+    CONTROLLERS.includes(value.controller) &&
+    isFiniteNumber(value.noise) &&
+    typeof value.threatLevel === 'string' &&
+    THREATS.includes(value.threatLevel) &&
+    typeof value.discovered === 'boolean' &&
+    (value.lastWorldEventAt === null || isFiniteNumber(value.lastWorldEventAt))
+  );
+}
+
+function isFactionState(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    isFiniteNumber(value.manpower) &&
+    isFiniteNumber(value.supplies) &&
+    isStringArray(value.controlledDistricts) &&
+    isFiniteNumber(value.awarenessOfPlayer) &&
+    isFiniteNumber(value.relationToPlayer) &&
+    typeof value.status === 'string' &&
+    (value.currentOperation === null || isRecord(value.currentOperation)) &&
+    isFiniteNumber(value.nextOperationAt) &&
+    typeof value.contacted === 'boolean' &&
+    (value.lastKnownActivity === null || isRecord(value.lastKnownActivity))
+  );
+}
+
 function isItemRegistry(value: unknown): boolean {
   return (
     isRecord(value) &&
@@ -180,6 +214,11 @@ function isStructurallyValid(value: unknown): value is GameState {
         typeof recruit.status === 'string' &&
         (RECRUITMENT_STATUSES as readonly string[]).includes(recruit.status),
     ) &&
+    isRecord(value.districts) &&
+    Object.values(value.districts).every(isDistrictState) &&
+    isRecord(value.factions) &&
+    Object.values(value.factions).every(isFactionState) &&
+    Array.isArray(value.worldEvents) &&
     isRecord(value.relations) &&
     Object.values(value.relations).every((relation) => isRecord(relation) && isFiniteNumber(relation.trust)) &&
     Array.isArray(value.characters) &&
@@ -370,12 +409,53 @@ function migrateV5toV6(save: UnknownRecord): UnknownRecord {
   };
 }
 
+/** Frozen initial world of 0.6 (districts + Arena), used to upgrade older campaigns. */
+const V7_DISTRICTS: readonly (readonly [string, string, boolean])[] = [
+  ['lefortovo', 'none', true],
+  ['sokolinaya_gora', 'arena', true],
+  ['perovo', 'none', false],
+  ['izmailovo', 'none', false],
+  ['novogireevo', 'none', false],
+];
+
+/** v6 → v7: district runtime state, the Arena, an empty hidden world log. */
+function migrateV6toV7(save: UnknownRecord): UnknownRecord {
+  const time = isFiniteNumber(save.time) ? save.time : 0;
+  return {
+    ...save,
+    version: 7,
+    districts: Object.fromEntries(
+      V7_DISTRICTS.map(([districtId, controller, discovered]) => [
+        districtId,
+        { districtId, controller, noise: 0, threatLevel: 'low', discovered, lastWorldEventAt: null },
+      ]),
+    ),
+    factions: {
+      arena: {
+        id: 'arena',
+        manpower: 35,
+        supplies: 50,
+        controlledDistricts: ['sokolinaya_gora'],
+        awarenessOfPlayer: 0,
+        relationToPlayer: 0,
+        status: 'active',
+        currentOperation: null,
+        nextOperationAt: time + 6,
+        contacted: false,
+        lastKnownActivity: null,
+      },
+    },
+    worldEvents: [],
+  };
+}
+
 const MIGRATIONS: Readonly<Record<number, (save: UnknownRecord) => UnknownRecord>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
   3: migrateV3toV4,
   4: migrateV4toV5,
   5: migrateV5toV6,
+  6: migrateV6toV7,
 };
 
 /** Brings an old save up to GAME_STATE_VERSION and validates it. Null if impossible. */

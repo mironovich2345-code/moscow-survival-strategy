@@ -1,4 +1,5 @@
 import type { ResourceDelta } from '../resources';
+import type { FactionId } from '../factions/types';
 import type { RecruitmentStatus, StoryFlagValue } from '../story/types';
 
 /**
@@ -24,7 +25,10 @@ export type EventEffect =
   /** The recruit joins the group (conditions must hold; otherwise the choice is unavailable). */
   | { readonly type: 'recruit'; readonly recruitId: string }
   /** Chains the next story event right after this decision. */
-  | { readonly type: 'storyEvent'; readonly eventId: EventId };
+  | { readonly type: 'storyEvent'; readonly eventId: EventId }
+  | { readonly type: 'factionContact'; readonly factionId: FactionId }
+  | { readonly type: 'factionAwareness'; readonly factionId: FactionId; readonly delta: number }
+  | { readonly type: 'factionRelation'; readonly factionId: FactionId; readonly delta: number };
 
 export interface EventOutcome {
   readonly id: string;

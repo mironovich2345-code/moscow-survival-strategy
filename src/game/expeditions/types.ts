@@ -57,4 +57,5 @@ export type ExpeditionError =
   | 'NOT_ENOUGH_SUPPLIES'
   | 'OVERLOADED'
   | 'REQUIRED_MEMBER_MISSING'
+  | 'LOCATION_RESTRICTED'
   | 'COMBAT_ACTIVE';

@@ -1,11 +1,17 @@
 import { useState } from 'react';
-import { activeStoryTrigger, type DistrictDefinition, type LocationDefinition } from '@game/index';
+import { activeStoryTrigger, getFlag, type DistrictDefinition, type LocationDefinition } from '@game/index';
 import { useGameStore } from '../store/gameStore';
 import { GAME_CONTENT } from '@data/content';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ExpeditionList } from '../components/ExpeditionList';
 import { SquadPanel } from '../components/SquadPanel';
-import { RISK_LABELS } from '../labels';
+import {
+  CONTROLLER_LABELS,
+  OPERATION_SEEN_LABELS,
+  RISK_LABELS,
+  THREAT_LABELS,
+  factionDisplayName,
+} from '../labels';
 
 const districts: readonly DistrictDefinition[] = Object.values(GAME_CONTENT.districts);
 const locations: readonly LocationDefinition[] = Object.values(GAME_CONTENT.locations);
@@ -31,11 +37,17 @@ export function MapScreen({ onBack }: { readonly onBack: () => void }) {
             >
               <h3>{district.name}</h3>
               <p className="muted">{district.description}</p>
+              <DistrictStatus districtId={district.id} />
               <ul className="district__locations">
                 {locations
                   .filter((location) => location.districtId === district.id)
+                  .filter((location) => !location.hiddenUntilFlag || getFlag(game, location.hiddenUntilFlag) === true)
                   .map((location) =>
-                    location.kind === 'base' ? (
+                    location.restricted ? (
+                      <li key={location.id} className="location location--restricted" title={location.description}>
+                        ⚠ {location.name} <span className="risk risk--high">опасная точка</span>
+                      </li>
+                    ) : location.kind === 'base' ? (
                       <li key={location.id} className="location location--base">
                         ⌂ {location.name}
                       </li>
@@ -81,5 +93,48 @@ export function MapScreen({ onBack }: { readonly onBack: () => void }) {
         <ExpeditionList />
       </section>
     </div>
+  );
+}
+
+/**
+ * Controller, noise, threat and known faction activity. Noise numbers are shown
+ * as-is in the prototype; undiscovered districts show nothing.
+ */
+function DistrictStatus({ districtId }: { readonly districtId: string }) {
+  const game = useGameStore((s) => s.game);
+  const district = game.districts[districtId];
+  if (!district) return null;
+  if (!district.discovered) return <p className="small muted">Не разведан.</p>;
+  const controllerFaction = Object.values(game.factions).find((f) => f.controlledDistricts.includes(districtId));
+  const controller =
+    district.controller === 'none'
+      ? CONTROLLER_LABELS.none
+      : controllerFaction
+        ? factionDisplayName(controllerFaction.id, controllerFaction.contacted)
+        : CONTROLLER_LABELS[district.controller];
+  const activity = Object.values(game.factions)
+    .filter((f) => f.lastKnownActivity?.districtId === districtId)
+    .map((f) => `${OPERATION_SEEN_LABELS[f.lastKnownActivity!.operation]} (${factionDisplayName(f.id, f.contacted)})`);
+  return (
+    <dl className="district__status small">
+      <div>
+        <dt>Контроль</dt>
+        <dd>{controller}</dd>
+      </div>
+      <div>
+        <dt>Шум</dt>
+        <dd>{district.noise}</dd>
+      </div>
+      <div>
+        <dt>Угроза</dt>
+        <dd className={`threat threat--${district.threatLevel}`}>{THREAT_LABELS[district.threatLevel]}</dd>
+      </div>
+      {activity.length > 0 && (
+        <div>
+          <dt>Активность</dt>
+          <dd>{activity.join('; ')}</dd>
+        </div>
+      )}
+    </dl>
   );
 }

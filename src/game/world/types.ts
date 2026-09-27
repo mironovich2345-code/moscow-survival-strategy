@@ -1,6 +1,8 @@
 import type { EventDefinition, EventId } from '../events';
 import type { ItemDefId, ItemDefinition } from '../inventory';
 import type { RecruitDefinition, StoryTrigger, TraitDefinition } from '../story/types';
+import type { DistrictController, InfectedEncounterRule, ThreatLevel } from '../districts/types';
+import type { FactionDefinition } from '../factions/types';
 import type { ResourceKind } from '../resources';
 
 /**
@@ -17,9 +19,21 @@ export interface DistrictDefinition {
   readonly description: string;
   /** Position on the schematic prototype map (grid cells). */
   readonly mapPosition: { readonly column: number; readonly row: number };
+  readonly initialController: DistrictController;
+  readonly initialDiscovered: boolean;
+  /** Adjacent districts (for faction operations). */
+  readonly neighbors: readonly DistrictId[];
 }
 
-export type LocationKind = 'base' | 'pharmacy' | 'grocery' | 'parking' | 'police' | 'fitness_club';
+export type LocationKind =
+  | 'base'
+  | 'pharmacy'
+  | 'grocery'
+  | 'parking'
+  | 'police'
+  | 'fitness_club'
+  | 'industrial'
+  | 'faction_site';
 
 /** Informational only in 0.2 — does not change any roll yet. */
 export type RiskLevel = 'none' | 'low' | 'medium' | 'high';
@@ -51,6 +65,10 @@ export interface LocationDefinition {
   readonly loot: readonly LootRange[];
   /** Unique items that may be found, rolled after resources. */
   readonly itemLoot?: readonly ItemLootEntry[];
+  /** Dangerous point: expeditions cannot be sent here (yet). */
+  readonly restricted?: boolean;
+  /** Shown on the map only once this story flag is true. */
+  readonly hiddenUntilFlag?: string;
 }
 
 /** Everything static the game logic needs to run. Passed in, never imported. */
@@ -62,4 +80,7 @@ export interface GameContent {
   readonly recruits: Readonly<Record<string, RecruitDefinition>>;
   readonly traits: Readonly<Record<string, TraitDefinition>>;
   readonly storyTriggers: readonly StoryTrigger[];
+  readonly factions: Readonly<Record<string, FactionDefinition>>;
+  /** Infected encounter chance per threat level; null disables encounters. */
+  readonly infectedEncounters: Readonly<Record<ThreatLevel, InfectedEncounterRule>> | null;
 }

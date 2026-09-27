@@ -13,8 +13,11 @@ import {
 
 export const content = GAME_CONTENT;
 
-/** Same world without expedition events — for tests of timing and loot only. */
-export const quietContent: GameContent = { ...GAME_CONTENT, events: {} };
+/**
+ * Same world without expedition events and without threat-driven infected
+ * encounters (0.6) — for tests of timing and loot only.
+ */
+export const quietContent: GameContent = { ...GAME_CONTENT, events: {}, infectedEncounters: null };
 
 export function endTurns(state: GameState, n: number, world: GameContent = quietContent): GameState {
   let s = state;

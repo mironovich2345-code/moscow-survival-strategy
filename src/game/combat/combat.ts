@@ -2,6 +2,7 @@ import { EQUIPMENT_SLOTS, findCharacter, isAlive } from '../characters';
 import type { Character, CharacterId, ItemInstanceId } from '../characters';
 import { carriedResources, carriesAtLeast, spendFromExpedition } from '../expeditions/cargo';
 import type { Expedition } from '../expeditions/types';
+import { addDistrictNoise } from '../districts/districts';
 import { addLogEntry, allocateId } from '../gameState/ids';
 import type { GameState } from '../gameState/types';
 import { getItemDefinition, squadLoad } from '../inventory';
@@ -443,7 +444,7 @@ function reinforcements(state: GameState): GameState {
 /** Enemies act, defeat check, reinforcements, next round. */
 function finishRound(state: GameState, content: GameContent): GameState {
   let next = enemyPhase(state, content);
-  if (livingCombatants(next).length === 0) return endCombat(next, 'defeat');
+  if (livingCombatants(next).length === 0) return endCombat(next, 'defeat', content);
   next = reinforcements(next);
   const combat = next.combat!;
   return setCombat(next, { ...combat, round: combat.round + 1, selectedActions: {}, defending: [] });
@@ -488,7 +489,7 @@ export function attemptRetreat(state: GameState, content: GameContent): CombatRe
     chance,
     success,
   });
-  if (success) return ok(endCombat(next, 'retreated'));
+  if (success) return ok(endCombat(next, 'retreated', content));
   // The round is lost: nobody acts, the infected attack.
   next = setCombat(next, { ...next.combat!, selectedActions: {} });
   return ok(finishRound(next, content));
@@ -520,10 +521,13 @@ function recoverFallenItems(state: GameState, content: GameContent): GameState {
   return log(replaceExpedition(state, current), { type: 'fallenItems', recovered, leftBehind });
 }
 
-function endCombat(state: GameState, status: CombatStatus, content?: GameContent): GameState {
+function endCombat(state: GameState, status: CombatStatus, content: GameContent): GameState {
   const combat = state.combat!;
   let next = setCombat(state, { ...combat, status, selectedActions: {}, defending: [] });
-  if (status === 'victory' && content) next = recoverFallenItems(next, content);
+  if (status === 'victory') next = recoverFallenItems(next, content);
+  // The fight's noise stays in the district (GAME_RULES «Районный шум»).
+  const districtId = content.locations[combat.locationId]?.districtId;
+  if (districtId) next = addDistrictNoise(next, districtId, combat.combatNoise);
 
   const expedition = expeditionOf(next, combat);
   if (status === 'retreated' && expedition) {

@@ -234,15 +234,20 @@ describe('determinism with item loot', () => {
         memberIds: [HERO_ID, MAXIM_ID],
         supplies: { ammunition: 12, water: 2 },
       });
-      for (let i = 0; i < 25 && state.expeditions.length > 0; i += 1) {
+      for (let i = 0; i < 60 && state.expeditions.length > 0; i += 1) {
         const pending = state.expeditions[0]?.pendingEventId;
-        const command: GameCommand = pending
-          ? {
-              type: 'resolveEvent',
-              expeditionId: trip(state).id,
-              choiceId: content.events[pending]!.choices.find((c) => c.requires === undefined)!.id,
-            }
-          : { type: 'endTurn' };
+        // 0.6: threat encounters can start a fight — retreat until it is over, then close it.
+        const command: GameCommand = state.combat
+          ? state.combat.status === 'setup' || state.combat.status === 'active'
+            ? { type: 'retreatFromCombat' }
+            : { type: 'closeCombat' }
+          : pending
+            ? {
+                type: 'resolveEvent',
+                expeditionId: trip(state).id,
+                choiceId: content.events[pending]!.choices.find((c) => c.requires === undefined)!.id,
+              }
+            : { type: 'endTurn' };
         const result = applyCommand(state, command, content);
         if (!result.ok) throw new Error(result.error);
         state = result.state;

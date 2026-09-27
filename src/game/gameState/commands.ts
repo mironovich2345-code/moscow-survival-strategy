@@ -15,6 +15,8 @@ import type { ItemError, MoveItemTarget } from '../inventory';
 import type { RecruitError } from '../story/types';
 import { applyDailyConsumption, daysCrossed } from '../survival';
 import { advanceTurns } from '../time';
+import { decayDistrictNoise } from '../districts/districts';
+import { factionTick } from '../factions/factions';
 import type { GameContent, LocationId } from '../world';
 import type { GameState } from './types';
 
@@ -72,7 +74,10 @@ export function endTurn(state: GameState, content: GameContent): GameState {
   for (let i = 0; i < daysCrossed(state.time, time); i += 1) {
     next = applyDailyConsumption(next);
   }
-  return processExpeditions(next, content);
+  next = processExpeditions(next, content);
+  // World simulation (GAME_RULES «Порядок обработки хода», steps 5–7).
+  next = decayDistrictNoise(next);
+  return factionTick(next, content);
 }
 
 export function applyCommand(

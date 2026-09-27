@@ -51,6 +51,13 @@ export function TopBar({ screen, onNavigate }: TopBarProps) {
         </button>
         <button
           type="button"
+          className={screen === 'factions' ? 'active' : ''}
+          onClick={() => onNavigate('factions')}
+        >
+          Фракции
+        </button>
+        <button
+          type="button"
           className="primary"
           disabled={awaiting}
           title={awaiting ? 'Сначала примите решение по событию' : undefined}

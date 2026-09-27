@@ -44,6 +44,9 @@ export function createNewGame(setup: NewGameSetup): GameState {
       ]),
     ),
     relations: {},
+    districts: Object.fromEntries(setup.districts.map((d) => [d.districtId, d])),
+    factions: Object.fromEntries(setup.factions.map((f) => [f.id, f])),
+    worldEvents: [],
     log: [],
     nextId: 1,
   };

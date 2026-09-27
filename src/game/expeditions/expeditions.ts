@@ -7,6 +7,8 @@ import { changeTrust } from '../story/relations';
 import { activeStoryTrigger } from '../story/triggers';
 import type { RecruitError } from '../story/types';
 import type { EventChoice } from '../events';
+import { districtOfLocation } from '../districts/districts';
+import { changeAwareness, changeRelation, contactFaction } from '../factions/factions';
 import { pickOutcome } from '../events';
 import type { EventEffect } from '../events';
 import { SUPPLY_KINDS, emptySupplies, squadLoad } from '../inventory';
@@ -77,6 +79,7 @@ export function validateExpedition(
   const location = content.locations[locationId];
   if (!location) return 'UNKNOWN_LOCATION';
   if (location.kind === 'base' || location.expeditionTurns <= 0) return 'LOCATION_NOT_EXPLORABLE';
+  if (location.restricted) return 'LOCATION_RESTRICTED';
   const squadError = validateSquad(state, memberIds);
   if (squadError) return squadError;
   // While a story trigger is active here, its required members must go.
@@ -449,6 +452,15 @@ export function resolveExpeditionEvent(
       case 'recruitStatus':
         next = setRecruitStatus(next, effect.recruitId, effect.status);
         break;
+      case 'factionContact':
+        next = contactFaction(next, effect.factionId);
+        break;
+      case 'factionAwareness':
+        next = changeAwareness(next, effect.factionId, effect.delta);
+        break;
+      case 'factionRelation':
+        next = changeRelation(next, effect.factionId, effect.delta);
+        break;
       case 'recruit': {
         const joined = recruitCharacter(next, content, effect.recruitId, expeditionId);
         if (!joined.ok) return joined;
@@ -520,7 +532,40 @@ export function processExpeditions(state: GameState, content: GameContent): Game
     }
     if (active.returnsAt <= next.time) return completeExpedition(next, active);
     if (hasPendingEvent(active, content)) return next;
-    return rollExpeditionEvent(next, content, active);
+    // Infected encounter by district threat comes before random events.
+    const encounter = rollInfectedEncounter(next, content, active);
+    if (encounter.fought) return encounter.state;
+    return rollExpeditionEvent(encounter.state, content, active);
   }, state);
 }
 
+
+/**
+ * Threat-driven infected encounter (GAME_RULES «Уровень угрозы»): one roll per
+ * expedition per turn; on success a fight with 1–4 ordinary infected starts.
+ */
+export function rollInfectedEncounter(
+  state: GameState,
+  content: GameContent,
+  expedition: Expedition,
+): { readonly state: GameState; readonly fought: boolean } {
+  const table = content.infectedEncounters;
+  const districtId = districtOfLocation(content, expedition.locationId);
+  const district = districtId ? state.districts[districtId] : undefined;
+  if (!table || !district || state.combat) return { state, fought: false };
+  const rule = table[district.threatLevel];
+  const chance = nextInt(state.rng, 1, 100);
+  let next: GameState = { ...state, rng: chance.state };
+  if (chance.value > rule.chancePercent) return { state: next, fought: false };
+  const size = nextInt(next.rng, rule.min, rule.max);
+  next = { ...next, rng: size.state };
+  next = addLogEntry(next, {
+    type: 'threatEncounter',
+    expeditionId: expedition.id,
+    districtId: district.districtId,
+    threat: district.threatLevel,
+    enemies: size.value,
+  });
+  const started = startCombat(next, expedition.id, size.value);
+  return started.ok ? { state: started.state, fought: true } : { state: next, fought: false };
+}
