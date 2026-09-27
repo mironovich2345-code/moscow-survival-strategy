@@ -1,5 +1,6 @@
 import type { EventDefinition, EventId } from '../events';
 import type { ItemDefId, ItemDefinition } from '../inventory';
+import type { RecruitDefinition, StoryTrigger, TraitDefinition } from '../story/types';
 import type { ResourceKind } from '../resources';
 
 /**
@@ -18,7 +19,7 @@ export interface DistrictDefinition {
   readonly mapPosition: { readonly column: number; readonly row: number };
 }
 
-export type LocationKind = 'base' | 'pharmacy' | 'grocery' | 'parking' | 'police';
+export type LocationKind = 'base' | 'pharmacy' | 'grocery' | 'parking' | 'police' | 'fitness_club';
 
 /** Informational only in 0.2 — does not change any roll yet. */
 export type RiskLevel = 'none' | 'low' | 'medium' | 'high';
@@ -58,4 +59,7 @@ export interface GameContent {
   readonly locations: Readonly<Record<LocationId, LocationDefinition>>;
   readonly events: Readonly<Record<EventId, EventDefinition>>;
   readonly items: Readonly<Record<ItemDefId, ItemDefinition>>;
+  readonly recruits: Readonly<Record<string, RecruitDefinition>>;
+  readonly traits: Readonly<Record<string, TraitDefinition>>;
+  readonly storyTriggers: readonly StoryTrigger[];
 }

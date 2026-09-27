@@ -4,14 +4,25 @@ import { ATTRIBUTE_LABELS, SKILL_LABELS } from '../labels';
 import { useGameStore } from '../store/gameStore';
 import { EquipmentEditor } from './EquipmentEditor';
 
-export function CharacterCard({ character }: { readonly character: Character }) {
+interface CharacterCardProps {
+  readonly character: Character;
+  readonly onOpenProfile?: () => void;
+}
+
+export function CharacterCard({ character, onOpenProfile }: CharacterCardProps) {
   const { condition, assignment } = character;
   const items = useGameStore((s) => s.game.items);
   return (
     <article className="card character">
       <header className="character__header">
         <h3>
-          {character.name}
+          {onOpenProfile ? (
+            <button type="button" className="link" onClick={onOpenProfile} aria-label={`Профиль: ${character.name}`}>
+              {character.name}
+            </button>
+          ) : (
+            character.name
+          )}
           {character.isHero && <span className="tag">герой</span>}
         </h3>
         <span className={`status status--${assignment.type}`}>

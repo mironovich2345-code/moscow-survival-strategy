@@ -36,6 +36,8 @@ export interface Character {
   readonly name: string;
   readonly isHero: boolean;
   readonly attributes: Attributes;
+  /** Trait ids (content: GameContent.traits). Informational in 0.5. */
+  readonly traits: readonly string[];
   readonly skills: Skills;
   readonly equipment: Equipment;
   readonly condition: CharacterCondition;

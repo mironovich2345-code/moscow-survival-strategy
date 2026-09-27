@@ -1,8 +1,8 @@
 import type { NewGameSetup } from '@game/gameState';
 import type { GameContent } from '@game/world';
-import { STARTING_CHARACTERS } from './characters';
+import { RECRUITS, STARTING_CHARACTERS, TRAITS } from './characters';
 import { DISTRICTS } from './districts';
-import { EVENTS } from './events';
+import { EVENTS, STORY_EVENTS, STORY_TRIGGERS } from './events';
 import { ITEMS, STARTING_ITEMS } from './items';
 import { BASE_LOCATION_ID, LOCATIONS } from './locations';
 
@@ -10,8 +10,11 @@ import { BASE_LOCATION_ID, LOCATIONS } from './locations';
 export const GAME_CONTENT: GameContent = {
   districts: DISTRICTS,
   locations: LOCATIONS,
-  events: EVENTS,
+  events: { ...EVENTS, ...STORY_EVENTS },
   items: ITEMS,
+  recruits: RECRUITS,
+  traits: TRAITS,
+  storyTriggers: STORY_TRIGGERS,
 };
 
 export const STARTING_RESOURCES = {
@@ -29,6 +32,9 @@ export function createPrototypeSetup(seed: number): NewGameSetup {
     baseLocationId: BASE_LOCATION_ID,
     characters: STARTING_CHARACTERS,
     items: STARTING_ITEMS,
+    // The hero knows where Maxim worked (GAME_BIBLE §9).
+    storyFlags: { maxim_location_known: true },
+    recruits: Object.fromEntries(Object.values(RECRUITS).map((r) => [r.id, r.initialStatus])),
     resources: STARTING_RESOURCES,
   };
 }

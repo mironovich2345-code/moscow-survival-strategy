@@ -3,6 +3,7 @@ import {
   HOURS_PER_TURN,
   MAX_SQUAD_SIZE,
   SUPPLY_KINDS,
+  activeStoryTrigger,
   adjustSupplyAmount,
   applyLootBonus,
   carryCapacity,
@@ -54,6 +55,7 @@ export function SquadPanel({ location, onSent }: SquadPanelProps) {
   const load = squadLoad(game, GAME_CONTENT.items, selected, supplies);
   const problem = selected.length === 0 ? null : validateExpedition(game, GAME_CONTENT, location.id, selected, supplies);
   const hours = location.expeditionTurns * HOURS_PER_TURN;
+  const storyTrigger = activeStoryTrigger(game, GAME_CONTENT, location.id);
 
   const send = () => {
     const ok = dispatch({ type: 'sendExpedition', locationId: location.id, memberIds: selected, supplies });
@@ -90,6 +92,13 @@ export function SquadPanel({ location, onSent }: SquadPanelProps) {
           </dd>
         </div>
       </dl>
+
+      {storyTrigger && (
+        <p className="small">
+          <span className="tag">сюжет</span> Обязательно в отряде:{' '}
+          {storyTrigger.requiredMemberIds.map((id) => game.characters.find((c) => c.id === id)?.name ?? id).join(', ')}.
+        </p>
+      )}
 
       <h3>
         Участники{' '}

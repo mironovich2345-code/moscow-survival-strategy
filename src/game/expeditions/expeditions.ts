@@ -1,6 +1,12 @@
 import { findCharacter, isAvailableForSquad, updateCharacters } from '../characters';
 import type { Character, CharacterId } from '../characters';
 import { startCombat } from '../combat/combat';
+import { setFlag } from '../story/flags';
+import { recruitCharacter, checkRecruitment, setRecruitStatus } from '../story/recruitment';
+import { changeTrust } from '../story/relations';
+import { activeStoryTrigger } from '../story/triggers';
+import type { RecruitError } from '../story/types';
+import type { EventChoice } from '../events';
 import { pickOutcome } from '../events';
 import type { EventEffect } from '../events';
 import { SUPPLY_KINDS, emptySupplies, squadLoad } from '../inventory';
@@ -73,6 +79,11 @@ export function validateExpedition(
   if (location.kind === 'base' || location.expeditionTurns <= 0) return 'LOCATION_NOT_EXPLORABLE';
   const squadError = validateSquad(state, memberIds);
   if (squadError) return squadError;
+  // While a story trigger is active here, its required members must go.
+  const trigger = activeStoryTrigger(state, content, locationId);
+  if (trigger && trigger.requiredMemberIds.some((id) => !memberIds.includes(id))) {
+    return 'REQUIRED_MEMBER_MISSING';
+  }
   const supplies = normalizeSupplies(request);
   if (!supplies) return 'INVALID_SUPPLIES';
   if (SUPPLY_KINDS.some((kind) => supplies[kind] > state.resources[kind])) return 'NOT_ENOUGH_SUPPLIES';
@@ -292,9 +303,10 @@ export function rollExpeditionEvent(
   content: GameContent,
   expedition: Expedition,
 ): GameState {
-  const candidates = Object.keys(content.events).filter(
-    (id) => !expedition.seenEventIds.includes(id),
-  );
+  // Story events never come from the random pool.
+  const candidates = Object.values(content.events)
+    .filter((event) => event.kind !== 'story' && !expedition.seenEventIds.includes(event.id))
+    .map((event) => event.id);
   if (candidates.length === 0) return state;
 
   const chance = nextInt(state.rng, 1, 100);
@@ -313,6 +325,7 @@ export function rollExpeditionEvent(
     expeditionId: expedition.id,
     locationId: expedition.locationId,
     eventId,
+    story: false,
   });
 }
 
@@ -334,14 +347,31 @@ function splitResourceEffects(effects: readonly EventEffect[]): {
   return { costs, finds };
 }
 
-/** Can the squad pick this choice (requirement met)? */
-export function isChoiceAvailable(expedition: Expedition, requires: ResourceDelta | undefined): boolean {
-  return requires === undefined || carriesAtLeast(expedition, requires);
+/**
+ * Why this choice cannot be picked right now (null = it can): missing supplies
+ * for `requires`, or an unmet recruitment condition for a `recruit` effect.
+ */
+export function choiceBlocker(
+  state: GameState,
+  content: GameContent,
+  expedition: Expedition,
+  choice: EventChoice,
+): ExpeditionError | RecruitError | null {
+  if (choice.requires && !carriesAtLeast(expedition, choice.requires)) return 'CHOICE_UNAVAILABLE';
+  for (const outcome of choice.outcomes) {
+    for (const effect of outcome.effects) {
+      if (effect.type === 'recruit') {
+        const error = checkRecruitment(state, content, effect.recruitId, expedition.id);
+        if (error) return error;
+      }
+    }
+  }
+  return null;
 }
 
 export type ResolveEventResult =
   | { readonly ok: true; readonly state: GameState }
-  | { readonly ok: false; readonly error: ExpeditionError };
+  | { readonly ok: false; readonly error: ExpeditionError | RecruitError };
 
 /** Applies the player's choice for a paused expedition; the expedition then continues. */
 export function resolveExpeditionEvent(
@@ -362,9 +392,8 @@ export function resolveExpeditionEvent(
   const choice = event.choices.find((c) => c.id === choiceId);
   if (!choice) return { ok: false, error: 'UNKNOWN_CHOICE' };
   if (state.combat) return { ok: false, error: 'COMBAT_ACTIVE' };
-  if (choice.requires && !carriesAtLeast(expedition, choice.requires)) {
-    return { ok: false, error: 'CHOICE_UNAVAILABLE' };
-  }
+  const blocker = choiceBlocker(state, content, expedition, choice);
+  if (blocker) return { ok: false, error: blocker };
 
   const { outcome, rng } = pickOutcome(state.rng, choice.outcomes);
   const { costs, finds } = splitResourceEffects(outcome.effects);
@@ -401,6 +430,40 @@ export function resolveExpeditionEvent(
     gained: found.accepted,
     leftBehind: found.leftBehind,
   });
+  // Story effects, in the order they are listed.
+  for (const effect of outcome.effects) {
+    switch (effect.type) {
+      case 'setFlag':
+        next = setFlag(next, effect.flag, effect.value);
+        break;
+      case 'trust': {
+        next = changeTrust(next, content, effect.characterId, effect.delta);
+        next = addLogEntry(next, {
+          type: 'trustChanged',
+          characterId: effect.characterId,
+          delta: effect.delta,
+          trust: next.relations[effect.characterId]?.trust ?? 0,
+        });
+        break;
+      }
+      case 'recruitStatus':
+        next = setRecruitStatus(next, effect.recruitId, effect.status);
+        break;
+      case 'recruit': {
+        const joined = recruitCharacter(next, content, effect.recruitId, expeditionId);
+        if (!joined.ok) return joined;
+        next = joined.state;
+        break;
+      }
+      default:
+        break;
+    }
+  }
+  // A chained story event pauses the expedition again right away.
+  const chained = outcome.effects.find((effect) => effect.type === 'storyEvent');
+  if (chained?.type === 'storyEvent' && content.events[chained.eventId]) {
+    next = pauseOnEvent(next, expeditionId, chained.eventId, true);
+  }
   // A `combat` effect opens the fight right away.
   const fight = outcome.effects.find((effect) => effect.type === 'combat');
   if (fight?.type === 'combat') {
@@ -409,6 +472,26 @@ export function resolveExpeditionEvent(
     next = started.state;
   }
   return { ok: true, state: next };
+}
+
+/** Puts an expedition on hold waiting for a decision on `eventId`. */
+function pauseOnEvent(state: GameState, expeditionId: string, eventId: string, story: boolean): GameState {
+  const expedition = state.expeditions.find((e) => e.id === expeditionId);
+  if (!expedition) return state;
+  const next = replaceExpedition(state, {
+    ...expedition,
+    pendingEventId: eventId,
+    seenEventIds: expedition.seenEventIds.includes(eventId)
+      ? expedition.seenEventIds
+      : [...expedition.seenEventIds, eventId],
+  });
+  return addLogEntry(next, {
+    type: 'expeditionEvent',
+    expeditionId,
+    locationId: expedition.locationId,
+    eventId,
+    story,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -427,6 +510,12 @@ export function processExpeditions(state: GameState, content: GameContent): Game
     let active = expedition;
     if (!active.searched && !active.aborted && active.searchAt <= next.time) {
       next = searchLocation(next, content, active);
+      // Arrival: a story event here takes priority over everything else this turn.
+      const trigger = activeStoryTrigger(next, content, active.locationId);
+      if (trigger && content.events[trigger.eventId]) {
+        next = addLogEntry(next, { type: 'locationArrived', expeditionId: active.id, locationId: active.locationId });
+        return pauseOnEvent(next, active.id, trigger.eventId, true);
+      }
       active = next.expeditions.find((e) => e.id === active.id) ?? active;
     }
     if (active.returnsAt <= next.time) return completeExpedition(next, active);

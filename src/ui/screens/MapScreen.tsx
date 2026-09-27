@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import type { DistrictDefinition, LocationDefinition } from '@game/index';
+import { activeStoryTrigger, type DistrictDefinition, type LocationDefinition } from '@game/index';
+import { useGameStore } from '../store/gameStore';
 import { GAME_CONTENT } from '@data/content';
 import { ErrorBanner } from '../components/ErrorBanner';
 import { ExpeditionList } from '../components/ExpeditionList';
@@ -11,6 +12,7 @@ const locations: readonly LocationDefinition[] = Object.values(GAME_CONTENT.loca
 
 export function MapScreen({ onBack }: { readonly onBack: () => void }) {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const game = useGameStore((s) => s.game);
   const selected = selectedLocationId ? GAME_CONTENT.locations[selectedLocationId] : undefined;
 
   return (
@@ -47,6 +49,7 @@ export function MapScreen({ onBack }: { readonly onBack: () => void }) {
                           onClick={() => setSelectedLocationId(location.id)}
                         >
                           {location.name}{' '}
+                          {activeStoryTrigger(game, GAME_CONTENT, location.id) && <span className="tag">сюжет</span>}{' '}
                           <span className={`risk risk--${location.risk}`}>
                             риск: {RISK_LABELS[location.risk]}
                           </span>

@@ -2,8 +2,11 @@ import type {
   AttributeId,
   EquipmentSlot,
   GameError,
+  CombatRole,
   GameLogEntry,
   ItemCategory,
+  RecruitmentStatus,
+  TrustCategory,
   LootRange,
   ResourceDelta,
   RiskLevel,
@@ -46,6 +49,29 @@ export const SLOT_LABELS: Record<EquipmentSlot, string> = {
   melee: 'Ближний бой',
   body: 'Тело',
   backpack: 'Рюкзак',
+};
+
+export const RECRUIT_STATUS_LABELS: Record<RecruitmentStatus, string> = {
+  unavailable: 'ещё не встречен',
+  available: 'может присоединиться',
+  invited: 'приглашён',
+  recruited: 'в группе',
+  declined: 'Герой отказался его брать',
+  dead: 'погиб',
+};
+
+export const TRUST_LABELS: Record<TrustCategory, string> = {
+  distrust: 'Недоверие',
+  wary: 'Осторожность',
+  neutral: 'Нейтрально',
+  trust: 'Доверие',
+  highTrust: 'Высокое доверие',
+};
+
+export const COMBAT_ROLE_LABELS: Record<CombatRole, string> = {
+  shooter: 'стрелок',
+  melee: 'ближний бой',
+  support: 'поддержка',
 };
 
 export const CATEGORY_LABELS: Record<ItemCategory, string> = {
@@ -109,6 +135,12 @@ export const ERROR_LABELS: Record<GameError, string> = {
   INVALID_ENEMY_COUNT: 'Заражённых должно быть от 1 до 4.',
   EXPEDITION_BUSY: 'Эта экспедиция сейчас не может вступить в бой.',
   MISSING_ACTIONS: 'Выберите действие каждому живому персонажу.',
+  GROUP_FULL: 'В группе уже 12 человек — места нет.',
+  RECRUIT_UNKNOWN: 'Неизвестный персонаж.',
+  RECRUIT_NOT_AVAILABLE: 'Этого человека сейчас нельзя позвать.',
+  REQUIRED_MEMBER_MISSING: 'В этом походе обязательно должен участвовать Герой.',
+  STORY_FLAG_MISSING: 'Для этого ещё не время.',
+  ALREADY_RECRUITED: 'Уже в группе.',
 };
 
 export const RISK_LABELS: Record<RiskLevel, string> = {
@@ -155,12 +187,24 @@ export function describeLogEntry(entry: GameLogEntry, nameOf: (id: string) => st
     case 'expeditionDeparted':
       return `Отряд (${entry.memberIds.map(nameOf).join(', ')}) вышел: ${locationName(entry.locationId)}. Взяли: ${formatAmounts(entry.supplies)}.`;
     case 'expeditionEvent':
-      return `Событие в пути (${locationName(entry.locationId)}): «${eventOf(entry.eventId)?.title ?? entry.eventId}».`;
+      return entry.story
+        ? `Сюжет (${locationName(entry.locationId)}): «${eventOf(entry.eventId)?.title ?? entry.eventId}».`
+        : `Событие в пути (${locationName(entry.locationId)}): «${eventOf(entry.eventId)?.title ?? entry.eventId}».`;
+    case 'locationArrived':
+      return `Отряд прибыл: ${locationName(entry.locationId)}.`;
+    case 'recruitStatusChanged':
+      return `${nameOf(entry.recruitId)}: ${RECRUIT_STATUS_LABELS[entry.status as RecruitmentStatus] ?? entry.status}.`;
+    case 'characterRecruited':
+      return `${nameOf(entry.characterId)} присоединился к группе (со своим снаряжением: ${entry.items.length} предм.).`;
+    case 'trustChanged':
+      return `${nameOf(entry.characterId)}: отношение к Герою ${entry.delta >= 0 ? 'улучшилось' : 'ухудшилось'}.`;
     case 'eventChoice': {
       const event = eventOf(entry.eventId);
       const choice = event?.choices.find((c) => c.id === entry.choiceId);
       const outcome = choice?.outcomes.find((o) => o.id === entry.outcomeId);
-      const parts = [`Решение: «${choice?.text ?? entry.choiceId}». ${outcome?.text ?? ''}`.trim()];
+      const text = choice?.text ?? entry.choiceId;
+      const quoted = text.startsWith('«') ? text : `«${text}»`;
+      const parts = [`Решение: ${quoted}. ${outcome?.text ?? ''}`.trim()];
       if (hasAny(entry.spent)) parts.push(`Потрачено: ${formatAmounts(entry.spent)}.`);
       if (hasAny(entry.gained)) parts.push(`Найдено: ${formatAmounts(entry.gained)}.`);
       if (hasAny(entry.leftBehind)) parts.push(`Не унесли: ${formatAmounts(entry.leftBehind)}.`);

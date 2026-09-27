@@ -30,6 +30,21 @@ export type GameLogEntry = LogEntryBase &
         readonly expeditionId: string;
         readonly locationId: LocationId;
         readonly eventId: EventId;
+        readonly story: boolean;
+      }
+    | { readonly type: 'locationArrived'; readonly expeditionId: string; readonly locationId: LocationId }
+    | { readonly type: 'recruitStatusChanged'; readonly recruitId: CharacterId; readonly status: string }
+    | {
+        readonly type: 'characterRecruited';
+        readonly characterId: CharacterId;
+        readonly expeditionId: string;
+        readonly items: readonly ItemInstanceId[];
+      }
+    | {
+        readonly type: 'trustChanged';
+        readonly characterId: CharacterId;
+        readonly delta: number;
+        readonly trust: number;
       }
     | {
         readonly type: 'eventChoice';

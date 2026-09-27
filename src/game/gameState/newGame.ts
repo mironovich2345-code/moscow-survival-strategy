@@ -35,6 +35,15 @@ export function createNewGame(setup: NewGameSetup): GameState {
     expeditions: [],
     lostItems: [],
     combat: null,
+    storyFlags: setup.storyFlags,
+    // Someone who is already in the group is, by definition, recruited.
+    recruits: Object.fromEntries(
+      Object.entries(setup.recruits).map(([id, status]) => [
+        id,
+        { status: setup.characters.some((c) => c.id === id) ? 'recruited' : status },
+      ]),
+    ),
+    relations: {},
     log: [],
     nextId: 1,
   };

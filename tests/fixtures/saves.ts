@@ -236,3 +236,13 @@ export const SAVE_V4 = {
   ],
   nextId: 7,
 };
+
+/** Prototype 0.4.1 (v5): SAVE_V4's campaign after the combat update — test Maxim in the group. */
+export const SAVE_V5 = {
+  ...SAVE_V4,
+  version: 5,
+  combat: null,
+  lostItems: [],
+  expeditions: SAVE_V4.expeditions.map((e) => ({ ...e, lostItems: [] })),
+  log: SAVE_V4.log.map((entry) => (entry.type === 'expeditionReturned' ? { ...entry, itemsLost: [] } : entry)),
+};

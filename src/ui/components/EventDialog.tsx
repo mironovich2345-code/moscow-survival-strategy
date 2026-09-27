@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { findCharacter, isChoiceAvailable, type Expedition } from '@game/index';
-import { formatAmounts } from '../labels';
+import { choiceBlocker, findCharacter, type Expedition } from '@game/index';
+import { ERROR_LABELS, formatAmounts } from '../labels';
 import { GAME_CONTENT } from '@data/content';
 import { useGameStore } from '../store/gameStore';
 
@@ -15,7 +15,8 @@ interface ShownResult {
  * pick a choice. After the choice the outcome is shown until dismissed.
  */
 export function EventDialog() {
-  const expeditions = useGameStore((s) => s.game.expeditions);
+  const game = useGameStore((s) => s.game);
+  const expeditions = game.expeditions;
   const characters = useGameStore((s) => s.game.characters);
   const dispatch = useGameStore((s) => s.dispatch);
   const [result, setResult] = useState<ShownResult | null>(null);
@@ -67,7 +68,9 @@ export function EventDialog() {
         <p className="muted">
           {location?.name ?? pending.locationId} · {names}
         </p>
-        <h2 id="event-title">{event.title}</h2>
+        <h2 id="event-title">
+          {event.kind === 'story' && <span className="tag">сюжет</span>} {event.title}
+        </h2>
         <p>{event.description}</p>
         <p className="muted small">
           Припасы отряда: {formatAmounts(pending.supplies)}
@@ -75,12 +78,15 @@ export function EventDialog() {
         </p>
         <div className="dialog__choices">
           {event.choices.map((choice) => {
-            const available = isChoiceAvailable(pending, choice.requires);
+            const blocker = choiceBlocker(game, GAME_CONTENT, pending, choice);
             return (
-              <button key={choice.id} type="button" disabled={!available} onClick={() => choose(choice.id)}>
+              <button key={choice.id} type="button" disabled={blocker !== null} onClick={() => choose(choice.id)}>
                 {choice.text}
                 {choice.requires && (
                   <span className="muted small"> (нужно: {formatAmounts(choice.requires)})</span>
+                )}
+                {blocker && blocker !== 'CHOICE_UNAVAILABLE' && (
+                  <span className="muted small"> — {ERROR_LABELS[blocker]}</span>
                 )}
               </button>
             );

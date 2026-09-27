@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { MAXIM, HERO } from '@data/characters';
+import { HERO } from '@data/characters';
+import { LEGACY_MAXIM as MAXIM } from './helpers';
 import {
   MAX_GROUP_SIZE,
   addCharacterToGroup,
@@ -10,7 +11,7 @@ import {
 import { newGame } from './helpers';
 
 describe('characters', () => {
-  it('new game has the hero and Maxim at the base', () => {
+  it('the test squad has the hero and Maxim at the base', () => {
     const state = newGame();
     expect(state.characters.map((c) => c.name)).toEqual(['Герой', 'Максим']);
     expect(state.characters.filter((c) => c.isHero)).toHaveLength(1);

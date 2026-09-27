@@ -9,4 +9,5 @@ export * from './events';
 export * from './survival';
 export * from './expeditions';
 export * from './combat';
+export * from './story';
 export * from './gameState';

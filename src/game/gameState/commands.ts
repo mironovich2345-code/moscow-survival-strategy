@@ -12,6 +12,7 @@ import { hasPendingEvent, processExpeditions, resolveExpeditionEvent, startExped
 import type { ExpeditionError, SuppliesRequest } from '../expeditions';
 import { moveItem } from '../inventory';
 import type { ItemError, MoveItemTarget } from '../inventory';
+import type { RecruitError } from '../story/types';
 import { applyDailyConsumption, daysCrossed } from '../survival';
 import { advanceTurns } from '../time';
 import type { GameContent, LocationId } from '../world';
@@ -49,7 +50,7 @@ export type GameCommand =
       readonly choiceId: string;
     };
 
-export type GameError = ExpeditionError | ItemError | CombatError | 'EVENT_PENDING';
+export type GameError = ExpeditionError | ItemError | CombatError | RecruitError | 'EVENT_PENDING';
 
 export type CommandResult =
   | { readonly ok: true; readonly state: GameState }

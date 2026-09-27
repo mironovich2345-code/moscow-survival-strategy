@@ -1,12 +1,16 @@
-import { MAX_GROUP_SIZE } from '@game/index';
+import { MAX_GROUP_SIZE, groupSize } from '@game/index';
 import { GAME_CONTENT } from '@data/content';
+import { useState } from 'react';
 import { CharacterCard } from '../components/CharacterCard';
+import { CharacterProfile } from '../components/CharacterProfile';
+import { KnownPeople } from '../components/KnownPeople';
 import { EventLog } from '../components/EventLog';
 import { ExpeditionList } from '../components/ExpeditionList';
 import { StoragePanel } from '../components/StoragePanel';
 import { useGameStore } from '../store/gameStore';
 
 export function BaseScreen() {
+  const [profileId, setProfileId] = useState<string | null>(null);
   const characters = useGameStore((s) => s.game.characters);
   const baseLocationId = useGameStore((s) => s.game.baseLocationId);
   const startNewGame = useGameStore((s) => s.startNewGame);
@@ -32,15 +36,18 @@ export function BaseScreen() {
         <h2>
           Группа{' '}
           <span className="muted">
-            {characters.length}/{MAX_GROUP_SIZE}
+            {groupSize(characters)}/{MAX_GROUP_SIZE}
           </span>
         </h2>
         <div className="grid">
           {characters.map((character) => (
-            <CharacterCard key={character.id} character={character} />
+            <CharacterCard key={character.id} character={character} onOpenProfile={() => setProfileId(character.id)} />
           ))}
         </div>
       </section>
+
+      <KnownPeople />
+      {profileId && <CharacterProfile characterId={profileId} onClose={() => setProfileId(null)} />}
 
       <StoragePanel />
 

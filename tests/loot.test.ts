@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { HERO, MAXIM, MAXIM_ID, HERO_ID } from '@data/characters';
+import { HERO, MAXIM_ID, HERO_ID } from '@data/characters';
+import { LEGACY_MAXIM as MAXIM } from './helpers';
 import {
   LEFORTOVO_GROCERY_ID,
   LEFORTOVO_PARKING_ID,

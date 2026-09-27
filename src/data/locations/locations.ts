@@ -5,6 +5,7 @@ export const LEFORTOVO_PHARMACY_ID = 'lefortovo_pharmacy';
 export const LEFORTOVO_GROCERY_ID = 'lefortovo_grocery';
 export const LEFORTOVO_PARKING_ID = 'lefortovo_parking';
 export const LEFORTOVO_POLICE_ID = 'lefortovo_police';
+export const FITNESS_CLUB_ID = 'maxim_fitness_club';
 
 /** Values are prototype balance — see docs/GAME_RULES.md «Локации Лефортово». */
 export const LOCATIONS = {
@@ -75,5 +76,16 @@ export const LOCATIONS = {
       { defId: 'pump_shotgun', chancePercent: 10 },
       { defId: 'police_vest', chancePercent: 15 },
     ],
+  },
+  [FITNESS_CLUB_ID]: {
+    id: FITNESS_CLUB_ID,
+    name: 'Фитнес-клуб Максима',
+    districtId: 'lefortovo',
+    kind: 'fitness_club',
+    description: 'Клуб, где до катастрофы работал тренером друг героя, Максим.',
+    risk: 'low',
+    // 2 turns = 4 hours: arrival after 1 turn, back after 2.
+    expeditionTurns: 2,
+    loot: [{ resource: 'water', min: 0, max: 2 }],
   },
 } as const satisfies Record<string, LocationDefinition>;

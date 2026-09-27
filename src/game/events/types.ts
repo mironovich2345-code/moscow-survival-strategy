@@ -1,4 +1,5 @@
 import type { ResourceDelta } from '../resources';
+import type { RecruitmentStatus, StoryFlagValue } from '../story/types';
 
 /**
  * Text events with choices. Definitions are static content (src/data/events);
@@ -16,7 +17,14 @@ export type EventEffect =
   /** Expedition gives up the search and heads home: no location loot. */
   | { readonly type: 'abort' }
   /** Starts a fight against N ordinary infected. */
-  | { readonly type: 'combat'; readonly enemies: number };
+  | { readonly type: 'combat'; readonly enemies: number }
+  | { readonly type: 'setFlag'; readonly flag: string; readonly value: StoryFlagValue }
+  | { readonly type: 'trust'; readonly characterId: string; readonly delta: number }
+  | { readonly type: 'recruitStatus'; readonly recruitId: string; readonly status: RecruitmentStatus }
+  /** The recruit joins the group (conditions must hold; otherwise the choice is unavailable). */
+  | { readonly type: 'recruit'; readonly recruitId: string }
+  /** Chains the next story event right after this decision. */
+  | { readonly type: 'storyEvent'; readonly eventId: EventId };
 
 export interface EventOutcome {
   readonly id: string;
@@ -34,8 +42,13 @@ export interface EventChoice {
   readonly outcomes: readonly EventOutcome[];
 }
 
+/** `random` events come from the expedition pool; `story` events only from triggers/chains. */
+export type EventKind = 'random' | 'story';
+
 export interface EventDefinition {
   readonly id: EventId;
+  /** Defaults to 'random'. */
+  readonly kind?: EventKind;
   readonly title: string;
   readonly description: string;
   readonly choices: readonly EventChoice[];

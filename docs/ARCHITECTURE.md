@@ -43,6 +43,7 @@ src/data  ──(типы)──►  src/game  ◄──(команды/сост
 | `world/` | Типы районов, локаций, таблиц добычи, `GameContent` |
 | `expeditions/` | Отправка отряда с припасами, `cargo.ts` (supplies/haul: расход, находки с учётом вместимости), добыча с бонусом поиска, события в пути, возвращение |
 | `combat/` | Бой (0.4): `CombatState`, формулы (`rules.ts`: попадание, броня, отступление, подкрепления), движок раунда, смерть и вещи павших |
+| `story/` | Сюжет (0.5): story flags, условия, найм (`recruitCharacter`), черты, отношения (trust), сюжетные триггеры, профиль (роль, местонахождение) |
 | `events/` | Типы событий экспедиций (`EventDefinition`, `EventEffect`), выбор исхода, журнал (`GameLogEntry`) |
 | `survival/` | Суточный расход еды и воды, голод/жажда |
 | `gameState/` | `GameState`, новая игра, команды, сохранение/загрузка |
@@ -109,6 +110,30 @@ Expedition.lostItems / GameState.lostItems  ← вещи павших / поте
   (шанс отступления, валидация действий через `validateCombatAction`).
 - `CombatScreen` показывается вместо остальных экранов, пока идёт бой.
   DEV-кнопка старта боя — только в dev-сборке или с `?dev`.
+
+## Сюжет и найм (0.5)
+
+```
+GameState.storyFlags   { flag: boolean | number | string }   ← одна таблица
+GameState.recruits     { id: { status } }                    ← потенциальные рекруты
+GameState.relations    { characterId: { trust } }             ← отношение к Герою
+Character.traits       TraitId[]                              ← черты
+GameContent.recruits / traits / storyTriggers                 ← контент (src/data)
+```
+
+- События: `kind: 'random' | 'story'`. Случайный пул берёт только `random`;
+  сюжетные ставятся триггерами при прибытии в локацию (приоритет над
+  случайными) или цепочкой (эффект `storyEvent`). Пауза и диалог — те же,
+  что у обычных событий (`EventDialog`).
+- Сюжетные последствия — обычные `EventEffect`: `setFlag`, `trust`,
+  `recruitStatus`, `recruit`, `storyEvent`.
+- Доступность варианта — `choiceBlocker` (нехватка припасов или
+  невыполненное условие найма); UI показывает причину.
+- Найм создаёт персонажа из `RecruitDefinition` и **новые** экземпляры его
+  стартовых предметов (`allocateId`), персонаж сразу становится участником
+  текущей экспедиции.
+- Новый рекрут = запись в `src/data/characters/recruits.ts` + события и
+  триггеры в `src/data/events/story.ts`. Код движка не меняется.
 
 ## Как расширять
 

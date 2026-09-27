@@ -1,5 +1,6 @@
 import { ATTRIBUTE_IDS, EQUIPMENT_SLOTS, SKILL_IDS } from '../characters';
 import { SUPPLY_KINDS, findItemLocationErrors } from '../inventory';
+import { RECRUITMENT_STATUSES } from '../story/types';
 import { RESOURCE_KINDS } from '../resources';
 import { GAME_STATE_VERSION } from './types';
 import type { GameState } from './types';
@@ -38,6 +39,7 @@ function isCharacter(value: unknown): boolean {
     typeof value.id === 'string' &&
     typeof value.name === 'string' &&
     typeof value.isHero === 'boolean' &&
+    isStringArray(value.traits) &&
     hasNumberFields(value.attributes, ATTRIBUTE_IDS) &&
     hasNumberFields(value.skills, SKILL_IDS) &&
     hasNumberFields(condition, ['health', 'maxHealth']) &&
@@ -167,6 +169,19 @@ function isStructurallyValid(value: unknown): value is GameState {
     Array.isArray(value.lostItems) &&
     value.lostItems.every(isLostItem) &&
     isCombat(value.combat) &&
+    isRecord(value.storyFlags) &&
+    Object.values(value.storyFlags).every(
+      (flag) => typeof flag === 'boolean' || typeof flag === 'string' || isFiniteNumber(flag),
+    ) &&
+    isRecord(value.recruits) &&
+    Object.values(value.recruits).every(
+      (recruit) =>
+        isRecord(recruit) &&
+        typeof recruit.status === 'string' &&
+        (RECRUITMENT_STATUSES as readonly string[]).includes(recruit.status),
+    ) &&
+    isRecord(value.relations) &&
+    Object.values(value.relations).every((relation) => isRecord(relation) && isFiniteNumber(relation.trust)) &&
     Array.isArray(value.characters) &&
     value.characters.every(isCharacter) &&
     Array.isArray(value.expeditions) &&
@@ -331,11 +346,36 @@ function migrateV4toV5(save: UnknownRecord): UnknownRecord {
   };
 }
 
+/**
+ * v5 → v6: story flags, recruits, relations, traits. Frozen knowledge of the
+ * 0.1–0.4 test start: if Maxim is already in the group he STAYS there.
+ */
+function migrateV5toV6(save: UnknownRecord): UnknownRecord {
+  const characters = Array.isArray(save.characters) ? save.characters : [];
+  const maxim = characters.find((c): c is UnknownRecord => isRecord(c) && c.id === 'maxim');
+  const maximDead = maxim !== undefined && isRecord(maxim.assignment) && maxim.assignment.type === 'dead';
+  return {
+    ...save,
+    version: 6,
+    characters: mapArray(save.characters, (character) => ({
+      traits: character.id === 'maxim' ? ['reliable'] : [],
+      ...character,
+    })),
+    storyFlags: maxim
+      ? { maxim_location_known: true, maxim_met: true, maxim_recruited: true }
+      : { maxim_location_known: true },
+    recruits: { maxim: { status: maxim ? (maximDead ? 'dead' : 'recruited') : 'unavailable' } },
+    relations: maxim ? { maxim: { trust: 50 } } : {},
+    log: mapArray(save.log, (entry) => (entry.type === 'expeditionEvent' ? { story: false, ...entry } : entry)),
+  };
+}
+
 const MIGRATIONS: Readonly<Record<number, (save: UnknownRecord) => UnknownRecord>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
   3: migrateV3toV4,
   4: migrateV4toV5,
+  5: migrateV5toV6,
 };
 
 /** Brings an old save up to GAME_STATE_VERSION and validates it. Null if impossible. */

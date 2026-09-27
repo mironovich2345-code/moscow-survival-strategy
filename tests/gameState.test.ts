@@ -1,14 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { HERO, MAXIM } from '@data/characters';
+import { HERO } from '@data/characters';
+import { LEGACY_MAXIM as MAXIM } from './helpers';
 import { STARTING_RESOURCES, createPrototypeSetup } from '@data/content';
 import { BASE_LOCATION_ID } from '@data/locations';
 import { createNewGame } from '@game/gameState';
 import { formatClock, getDay } from '@game/time';
-import { newGame } from './helpers';
+import { newCampaign, newGame } from './helpers';
 
 describe('new game', () => {
   it('starts on day 10 at the base in Lefortovo with starting resources', () => {
-    const state = newGame();
+    const state = newCampaign();
     expect(getDay(state.time)).toBe(10);
     expect(formatClock(state.time)).toBe('08:00');
     expect(state.turn).toBe(1);

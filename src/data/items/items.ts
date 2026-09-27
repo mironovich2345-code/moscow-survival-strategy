@@ -89,15 +89,17 @@ export const ITEMS = {
 
 export type KnownItemDefId = keyof typeof ITEMS;
 
-/** Stable instance ids of the starting items. */
+/** Stable instance ids of the hero's starting items. */
 export const PM_PISTOL_1 = 'pm_pistol-1';
-export const FIRE_AXE_1 = 'fire_axe-1';
 export const WORK_JACKET_1 = 'work_jacket-1';
+/**
+ * Ids of Maxim's items in 0.1–0.4 starts (old saves, test squad). Since 0.5 a
+ * new campaign creates Maxim's items only when he joins, with fresh ids.
+ */
+export const FIRE_AXE_1 = 'fire_axe-1';
 export const TOURIST_BACKPACK_1 = 'tourist_backpack-1';
 
 export const STARTING_ITEMS: readonly ItemInstance[] = [
   { id: PM_PISTOL_1, defId: 'pm_pistol' },
-  { id: FIRE_AXE_1, defId: 'fire_axe' },
   { id: WORK_JACKET_1, defId: 'work_jacket' },
-  { id: TOURIST_BACKPACK_1, defId: 'tourist_backpack' },
 ];

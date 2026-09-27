@@ -88,8 +88,8 @@ describe('save format v3', () => {
   it('saves the current version', () => {
     const storage = new MemoryStorage();
     saveGame(storage, newGame());
-    expect(GAME_STATE_VERSION).toBe(5);
-    expect(JSON.parse(storage.getItem(SAVE_KEY)!)).toMatchObject({ version: 5 });
+    expect(GAME_STATE_VERSION).toBe(6);
+    expect(JSON.parse(storage.getItem(SAVE_KEY)!)).toMatchObject({ version: 6 });
   });
 
   it('round-trips items, storage, equipment, supplies, haul, pending event and hunger', () => {
