@@ -70,6 +70,7 @@ src/data  ──(типы)──►  src/game  ◄──(команды/сост
 ```
 GameState.items    { [instanceId]: { id, defId } }   ← реестр всех уникальных предметов
 GameState.storage  { items: instanceId[] }            ← лежат на складе
+Expedition.haulItems instanceId[]                     ← найдены, несёт отряд (0.3.1)
 Character.equipment{ sidearm|primary|melee|body|backpack: instanceId | null }
 GameState.resources                                   ← расходники базы + fuel/materials
 Expedition.supplies / Expedition.haul                 ← что отряд взял / что нашёл
@@ -77,8 +78,12 @@ Expedition.supplies / Expedition.haul                 ← что отряд вз
 
 - Определения предметов (название, слот, вес, `capacityBonus`) — контент
   (`GameContent.items`, `src/data/items`). В state — только экземпляры.
-- Все перемещения предметов — через `moveItem`; `findItemLocationErrors`
-  проверяет инвариант (в тестах и при загрузке сейва).
+- Все перемещения предметов игроком — через `moveItem`; находки — через
+  `takeFoundItems` (выдаёт стабильный ID `<defId>-<nextId>`, кладёт в
+  `haulItems`); возвращение переносит `haulItems` в склад.
+  `findItemLocationErrors` проверяет инвариант «одно место» по складу,
+  экипировке и грузу экспедиций (в тестах и при загрузке сейва).
+- Обыск локации — в середине похода (`searchAt`), см. GAME_RULES.
 - Вес и вместимость — чистые функции (`resourceWeight`, `carryCapacity`,
   `squadLoad`, `fitIntoCapacity`), UI вызывает их же для превью.
 

@@ -120,3 +120,93 @@ export const SAVE_V2 = {
   ],
   nextId: 10,
 };
+
+const V3_CHARACTER_BASE = {
+  hero: {
+    ...V1_V2_HERO,
+    equipment: { sidearm: 'pm_pistol-1', primary: null, melee: null, body: 'work_jacket-1', backpack: null },
+  },
+  maxim: {
+    ...V1_V2_MAXIM,
+    equipment: { sidearm: null, primary: null, melee: 'fire_axe-1', body: null, backpack: 'tourist_backpack-1' },
+  },
+};
+
+/** Prototype 0.3: squad at the police station with supplies and found water; jacket in storage. */
+export const SAVE_V3 = {
+  version: 3,
+  seed: 11,
+  rng: 55555,
+  time: 228,
+  turn: 3,
+  baseLocationId: 'zhk_status',
+  resources: { food: 18, water: 18, medicine: 1, ammunition: 12, fuel: 10, materials: 15 },
+  items: {
+    'pm_pistol-1': { id: 'pm_pistol-1', defId: 'pm_pistol' },
+    'fire_axe-1': { id: 'fire_axe-1', defId: 'fire_axe' },
+    'work_jacket-1': { id: 'work_jacket-1', defId: 'work_jacket' },
+    'tourist_backpack-1': { id: 'tourist_backpack-1', defId: 'tourist_backpack' },
+  },
+  storage: { items: ['work_jacket-1'] },
+  characters: [
+    {
+      ...V3_CHARACTER_BASE.hero,
+      equipment: { ...V3_CHARACTER_BASE.hero.equipment, body: null },
+      condition: { health: 100, maxHealth: 100, hungry: false, thirsty: false },
+      assignment: { type: 'expedition', expeditionId: 'exp-3' },
+    },
+    {
+      ...V3_CHARACTER_BASE.maxim,
+      condition: { health: 100, maxHealth: 100, hungry: false, thirsty: false },
+      assignment: { type: 'expedition', expeditionId: 'exp-3' },
+    },
+  ],
+  expeditions: [
+    {
+      id: 'exp-3',
+      locationId: 'lefortovo_police',
+      memberIds: ['hero', 'maxim'],
+      departedAt: 224,
+      returnsAt: 234,
+      supplies: { food: 2, water: 2, medicine: 1, ammunition: 12 },
+      haul: { water: 2 },
+      pendingEventId: null,
+      seenEventIds: ['abandoned_bag'],
+      aborted: false,
+    },
+  ],
+  log: [
+    { type: 'campaignStarted', id: 'log-1', at: 224 },
+    {
+      type: 'expeditionDeparted',
+      expeditionId: 'exp-3',
+      locationId: 'lefortovo_police',
+      memberIds: ['hero', 'maxim'],
+      supplies: { food: 2, water: 2, medicine: 1, ammunition: 12 },
+      id: 'log-4',
+      at: 224,
+    },
+    {
+      type: 'lootFound',
+      expeditionId: 'exp-0',
+      locationId: 'lefortovo_pharmacy',
+      loot: { medicine: 2 },
+      scavengingBonusPercent: 40,
+      leftBehind: {},
+      id: 'log-2',
+      at: 200,
+    },
+    {
+      type: 'expeditionReturned',
+      expeditionId: 'exp-0',
+      locationId: 'lefortovo_pharmacy',
+      memberIds: ['hero'],
+      loot: { medicine: 2 },
+      suppliesReturned: {},
+      aborted: false,
+      id: 'log-3',
+      at: 200,
+    },
+  ],
+  nextId: 6,
+};

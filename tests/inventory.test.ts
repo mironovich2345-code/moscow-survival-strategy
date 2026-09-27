@@ -177,6 +177,6 @@ describe('weight and carry capacity', () => {
 
   it('squad load = equipment + carried resources, capacity = sum', () => {
     const load = squadLoad(newGame(), content.items, [HERO_ID, MAXIM_ID], { water: 2, ammunition: 12 });
-    expect(load).toEqual({ equipment: 8, resources: 4, total: 12, capacity: 35 });
+    expect(load).toEqual({ equipment: 8, items: 0, resources: 4, total: 12, capacity: 35 });
   });
 });

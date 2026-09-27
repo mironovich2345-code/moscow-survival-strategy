@@ -6,7 +6,7 @@ import {
   isAvailableForSquad,
 } from '@game/index';
 import { GAME_CONTENT } from '@data/content';
-import { RESOURCE_LABELS, SLOT_LABELS } from '../labels';
+import { CATEGORY_LABELS, RESOURCE_LABELS, SLOT_LABELS } from '../labels';
 import { useGameStore } from '../store/gameStore';
 
 /** «Склад»: base resources and every unique item with its current place. */
@@ -32,6 +32,7 @@ export function StoragePanel() {
           <tr>
             <th>Предмет</th>
             <th>Тип</th>
+            <th>Слот</th>
             <th>Вес</th>
             <th>Где</th>
             <th />
@@ -49,12 +50,26 @@ export function StoragePanel() {
                 <td>
                   {definition?.name ?? item.defId} <span className="muted small">#{item.id}</span>
                 </td>
+                <td>
+                  {definition ? CATEGORY_LABELS[definition.category] : '?'}
+                  {definition?.weapon && (
+                    <span className="muted small">
+                      {' '}
+                      урон {definition.weapon.damage}, шум {definition.weapon.noise}
+                    </span>
+                  )}
+                  {definition && definition.capacityBonus > 0 && (
+                    <span className="muted small"> +{definition.capacityBonus} к грузу</span>
+                  )}
+                </td>
                 <td>{definition ? SLOT_LABELS[definition.slot] : '?'}</td>
                 <td>{definition?.weight ?? '?'}</td>
                 <td>
                   {location?.type === 'storage'
                     ? 'на складе'
-                    : `экипирован: ${owner?.name ?? '?'}${ownerAway ? ' (в походе)' : ''}`}
+                    : location?.type === 'expedition'
+                      ? 'найден, в грузе отряда'
+                      : `экипирован: ${owner?.name ?? '?'}${ownerAway ? ' (в походе)' : ''}`}
                 </td>
                 <td>
                   {location?.type === 'storage' && atBase.length > 0 && (

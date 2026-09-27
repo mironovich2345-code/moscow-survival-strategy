@@ -88,8 +88,8 @@ describe('save format v3', () => {
   it('saves the current version', () => {
     const storage = new MemoryStorage();
     saveGame(storage, newGame());
-    expect(GAME_STATE_VERSION).toBe(3);
-    expect(JSON.parse(storage.getItem(SAVE_KEY)!)).toMatchObject({ version: 3 });
+    expect(GAME_STATE_VERSION).toBe(4);
+    expect(JSON.parse(storage.getItem(SAVE_KEY)!)).toMatchObject({ version: 4 });
   });
 
   it('round-trips items, storage, equipment, supplies, haul, pending event and hunger', () => {
@@ -180,10 +180,10 @@ describe('save format v3', () => {
     expect(state.resources.ammunition).toBeGreaterThan(SAVE_V2.resources.ammunition - 2);
   });
 
-  it('migrates a 0.1 (v1) save through v2 to v3', () => {
+  it('migrates a 0.1 (v1) save through the whole chain to the current version', () => {
     const state = deserializeGame(JSON.stringify(SAVE_V1));
     expect(state).not.toBeNull();
-    expect(state!.version).toBe(3);
+    expect(state!.version).toBe(GAME_STATE_VERSION);
     expect(state!.expeditions[0]).toMatchObject({ supplies: { food: 0 }, haul: {}, aborted: false });
     const home = endTurns(state!, 2);
     expect(home.expeditions).toHaveLength(0);

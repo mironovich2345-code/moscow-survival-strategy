@@ -5,25 +5,31 @@ import type { ItemDefinition, ItemInstance } from '@game/inventory';
  * balance — see docs/GAME_RULES.md «Вес и грузоподъёмность».
  */
 export const ITEMS = {
+  // --- Starting items (0.1–0.3) ---
   pm_pistol: {
     id: 'pm_pistol',
     name: 'Пистолет Макарова',
+    category: 'firearm',
     slot: 'sidearm',
     weight: 1,
     capacityBonus: 0,
+    weapon: { damage: 3, noise: 6, ammoPerAttack: 1 },
     description: 'Табельный ПМ. Надёжный, но слабый.',
   },
   fire_axe: {
     id: 'fire_axe',
     name: 'Пожарный топор',
+    category: 'melee',
     slot: 'melee',
     weight: 3,
     capacityBonus: 0,
+    weapon: { damage: 5, noise: 1, ammoPerAttack: 0 },
     description: 'Снят со щита в подъезде.',
   },
   work_jacket: {
     id: 'work_jacket',
     name: 'Рабочая куртка',
+    category: 'armor',
     slot: 'body',
     weight: 2,
     capacityBonus: 0,
@@ -32,10 +38,50 @@ export const ITEMS = {
   tourist_backpack: {
     id: 'tourist_backpack',
     name: 'Туристический рюкзак',
+    category: 'backpack',
     slot: 'backpack',
     weight: 2,
     capacityBonus: 15,
     description: 'Вместительный рюкзак на 60 литров.',
+  },
+  // --- Found in locations (0.3.1) ---
+  pump_shotgun: {
+    id: 'pump_shotgun',
+    name: 'Помповый дробовик',
+    category: 'firearm',
+    slot: 'primary',
+    weight: 4,
+    capacityBonus: 0,
+    weapon: { damage: 8, noise: 9, ammoPerAttack: 1 },
+    description: 'Оружие из оружейной комнаты отдела полиции. Громкое.',
+  },
+  police_vest: {
+    id: 'police_vest',
+    name: 'Полицейский бронежилет',
+    category: 'armor',
+    slot: 'body',
+    weight: 5,
+    capacityBonus: 0,
+    description: 'Тяжёлый, но надёжно закрывает корпус.',
+  },
+  city_backpack: {
+    id: 'city_backpack',
+    name: 'Маленький городской рюкзак',
+    category: 'backpack',
+    slot: 'backpack',
+    weight: 1,
+    capacityBonus: 8,
+    description: 'Обычный рюкзак для ноутбука и сменки.',
+  },
+  crowbar: {
+    id: 'crowbar',
+    name: 'Монтировка',
+    category: 'tool',
+    slot: 'melee',
+    weight: 2,
+    capacityBonus: 0,
+    weapon: { damage: 3, noise: 1, ammoPerAttack: 0 },
+    description: 'Инструмент из багажника. Годится и как оружие.',
   },
 } as const satisfies Record<string, ItemDefinition>;
 

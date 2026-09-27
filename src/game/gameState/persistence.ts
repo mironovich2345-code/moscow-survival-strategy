@@ -64,6 +64,10 @@ function isExpedition(value: unknown): boolean {
     hasNumberFields(value.supplies, SUPPLY_KINDS) &&
     isRecord(value.haul) &&
     Object.values(value.haul).every(isFiniteNumber) &&
+    Array.isArray(value.haulItems) &&
+    isFiniteNumber(value.searchAt) &&
+    typeof value.searched === 'boolean' &&
+    value.haulItems.every((id) => typeof id === 'string') &&
     (value.pendingEventId === null || typeof value.pendingEventId === 'string') &&
     Array.isArray(value.seenEventIds) &&
     value.seenEventIds.every((id) => typeof id === 'string') &&
@@ -235,9 +239,30 @@ function migrateV2toV3(save: UnknownRecord): UnknownRecord {
   };
 }
 
+/** v3 → v4: found unique items in the haul; item fields on loot/return log entries. */
+function migrateV3toV4(save: UnknownRecord): UnknownRecord {
+  return {
+    ...save,
+    version: 4,
+    // Old trips search at return, as they did in 0.3.
+    expeditions: mapArray(save.expeditions, (expedition) => ({
+      haulItems: [],
+      searched: false,
+      searchAt: expedition.returnsAt,
+      ...expedition,
+    })),
+    log: mapArray(save.log, (entry) => {
+      if (entry.type === 'lootFound') return { items: [], itemsLeftBehind: [], ...entry };
+      if (entry.type === 'expeditionReturned') return { items: [], ...entry };
+      return entry;
+    }),
+  };
+}
+
 const MIGRATIONS: Readonly<Record<number, (save: UnknownRecord) => UnknownRecord>> = {
   1: migrateV1toV2,
   2: migrateV2toV3,
+  3: migrateV3toV4,
 };
 
 /** Brings an old save up to GAME_STATE_VERSION and validates it. Null if impossible. */

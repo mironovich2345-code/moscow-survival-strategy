@@ -3,7 +3,7 @@ import type { Character, CharacterId } from '../characters';
 import { pickOutcome } from '../events';
 import type { EventEffect } from '../events';
 import { SUPPLY_KINDS, emptySupplies, squadLoad } from '../inventory';
-import type { Supplies } from '../inventory';
+import type { ItemDefId, Supplies } from '../inventory';
 import { addLogEntry, allocateId } from '../gameState/ids';
 import type { GameState } from '../gameState/types';
 import { nextInt } from '../random';
@@ -25,6 +25,7 @@ import {
   compactDelta,
   fitFindings,
   spendFromExpedition,
+  takeFoundItems,
 } from './cargo';
 
 export type ExpeditionResult =
@@ -98,8 +99,11 @@ export function startExpedition(
     memberIds: [...memberIds],
     departedAt: withId.time,
     returnsAt: advanceTurns(withId.time, location.expeditionTurns),
+    searchAt: advanceTurns(withId.time, Math.ceil(location.expeditionTurns / 2)),
+    searched: false,
     supplies,
     haul: {},
+    haulItems: [],
     pendingEventId: null,
     seenEventIds: [],
     aborted: false,
@@ -174,42 +178,74 @@ export function rollLoot(
   return { state: { ...state, rng }, loot };
 }
 
+/** Rolls the location's unique-item table: one `nextInt(1, 100) ≤ chance` per entry, in order. */
+export function rollItemLoot(
+  state: GameState,
+  location: LocationDefinition,
+): { readonly state: GameState; readonly defIds: readonly ItemDefId[] } {
+  let rng = state.rng;
+  const defIds: ItemDefId[] = [];
+  for (const entry of location.itemLoot ?? []) {
+    const roll = nextInt(rng, 1, 100);
+    rng = roll.state;
+    if (roll.value <= entry.chancePercent) defIds.push(entry.defId);
+  }
+  return { state: { ...state, rng }, defIds };
+}
+
 // ---------------------------------------------------------------------------
 // Return
 // ---------------------------------------------------------------------------
 
-function completeExpedition(
-  state: GameState,
-  content: GameContent,
-  expedition: Expedition,
-): GameState {
+/**
+ * Mid-trip search of the location: resources (table order), then unique
+ * items, all capacity-limited, straight into the haul. See GAME_RULES «Обыск локации».
+ */
+function searchLocation(state: GameState, content: GameContent, expedition: Expedition): GameState {
+  const searchedExpedition: Expedition = { ...expedition, searched: true };
   const location = content.locations[expedition.locationId];
-  let next: GameState = state;
-  let loot: ResourceDelta = {};
-  if (location && !expedition.aborted) {
-    const bonus = getScavengingBonusPercent(membersOf(next, expedition.memberIds));
-    const rolled = rollLoot(next, location, bonus);
-    const order = location.loot.map((range) => range.resource);
-    const fit = fitFindings(rolled.state, content.items, expedition, rolled.loot, order);
-    next = addLogEntry(rolled.state, {
-      type: 'lootFound',
-      expeditionId: expedition.id,
-      locationId: expedition.locationId,
-      loot: fit.accepted,
-      scavengingBonusPercent: bonus,
-      leftBehind: fit.leftBehind,
-    });
-    loot = fit.accepted;
-  }
+  if (!location || expedition.aborted) return replaceExpedition(state, searchedExpedition);
 
+  const bonus = getScavengingBonusPercent(membersOf(state, expedition.memberIds));
+  // 1. Resources (table order, capacity-limited).
+  const rolled = rollLoot(state, location, bonus);
+  const order = location.loot.map((range) => range.resource);
+  const fit = fitFindings(rolled.state, content.items, expedition, rolled.loot, order);
+  const withLoot: Expedition = {
+    ...searchedExpedition,
+    haul: compactDelta(addDeltas(expedition.haul, fit.accepted)),
+  };
+  // 2. Unique items, in whatever capacity is left after the resources.
+  const itemRoll = rollItemLoot(rolled.state, location);
+  const picked = takeFoundItems(
+    replaceExpedition(itemRoll.state, withLoot),
+    content.items,
+    withLoot,
+    itemRoll.defIds,
+  );
+  return addLogEntry(picked.state, {
+    type: 'lootFound',
+    expeditionId: expedition.id,
+    locationId: expedition.locationId,
+    loot: fit.accepted,
+    scavengingBonusPercent: bonus,
+    leftBehind: fit.leftBehind,
+    items: picked.taken,
+    itemsLeftBehind: picked.leftBehind,
+  });
+}
+
+/** The squad is home: supplies left + haul → base stock, found items → storage (same ids). */
+function completeExpedition(state: GameState, expedition: Expedition): GameState {
   const suppliesReturned = compactDelta(expedition.supplies);
-  const delivered = compactDelta(addDeltas(addDeltas(suppliesReturned, expedition.haul), loot));
+  const delivered = compactDelta(addDeltas(suppliesReturned, expedition.haul));
   const members = new Set(expedition.memberIds);
-  next = {
-    ...next,
-    resources: applyResourceDelta(next.resources, delivered),
-    expeditions: next.expeditions.filter((e) => e.id !== expedition.id),
-    characters: updateCharacters(next.characters, members, (character) => ({
+  const next: GameState = {
+    ...state,
+    resources: applyResourceDelta(state.resources, delivered),
+    storage: { items: [...state.storage.items, ...expedition.haulItems] },
+    expeditions: state.expeditions.filter((e) => e.id !== expedition.id),
+    characters: updateCharacters(state.characters, members, (character) => ({
       ...character,
       assignment: { type: 'base' },
     })),
@@ -221,6 +257,7 @@ function completeExpedition(
     memberIds: expedition.memberIds,
     loot: delivered,
     suppliesReturned,
+    items: expedition.haulItems,
     aborted: expedition.aborted,
   });
 }
@@ -329,7 +366,12 @@ export function resolveExpeditionEvent(
   let updated: Expedition = found.expedition;
   for (const effect of outcome.effects) {
     if (effect.type === 'delay') {
-      updated = { ...updated, returnsAt: advanceTurns(updated.returnsAt, effect.turns) };
+      updated = {
+        ...updated,
+        returnsAt: advanceTurns(updated.returnsAt, effect.turns),
+        // Before the search, the search is pushed back too.
+        searchAt: updated.searched ? updated.searchAt : advanceTurns(updated.searchAt, effect.turns),
+      };
     } else if (effect.type === 'abort') {
       updated = {
         ...updated,
@@ -367,9 +409,15 @@ export function processExpeditions(state: GameState, content: GameContent): Game
   return state.expeditions.reduce((current, original) => {
     const expedition = current.expeditions.find((e) => e.id === original.id);
     if (!expedition) return current;
-    if (expedition.returnsAt <= current.time) return completeExpedition(current, content, expedition);
-    if (hasPendingEvent(expedition, content)) return current;
-    return rollExpeditionEvent(current, content, expedition);
+    let next = current;
+    let active = expedition;
+    if (!active.searched && !active.aborted && active.searchAt <= next.time) {
+      next = searchLocation(next, content, active);
+      active = next.expeditions.find((e) => e.id === active.id) ?? active;
+    }
+    if (active.returnsAt <= next.time) return completeExpedition(next, active);
+    if (hasPendingEvent(active, content)) return next;
+    return rollExpeditionEvent(next, content, active);
   }, state);
 }
 

@@ -1,4 +1,5 @@
-import type { CharacterId } from '../characters';
+import type { CharacterId, ItemInstanceId } from '../characters';
+import type { ItemDefId, ItemInstance } from '../inventory/types';
 import type { ResourceDelta, ResourceKind } from '../resources';
 import type { GameHour } from '../time';
 import type { LocationId } from '../world';
@@ -52,6 +53,10 @@ export type GameLogEntry = LogEntryBase &
         readonly scavengingBonusPercent: number;
         /** Rolled but did not fit into the squad's capacity. */
         readonly leftBehind: ResourceDelta;
+        /** Unique items taken (with their new stable ids). */
+        readonly items: readonly ItemInstance[];
+        /** Unique items found but left because they did not fit. */
+        readonly itemsLeftBehind: readonly ItemDefId[];
       }
     | {
         readonly type: 'expeditionReturned';
@@ -62,6 +67,8 @@ export type GameLogEntry = LogEntryBase &
         readonly loot: ResourceDelta;
         /** The part of `loot` that is leftover supplies taken from the base. */
         readonly suppliesReturned: ResourceDelta;
+        /** Unique items moved to storage. */
+        readonly items: readonly ItemInstanceId[];
         readonly aborted: boolean;
       }
     | {

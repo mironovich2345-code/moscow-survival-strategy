@@ -3,6 +3,7 @@ import type {
   EquipmentSlot,
   GameError,
   GameLogEntry,
+  ItemCategory,
   LootRange,
   ResourceDelta,
   RiskLevel,
@@ -46,6 +47,33 @@ export const SLOT_LABELS: Record<EquipmentSlot, string> = {
   body: 'Тело',
   backpack: 'Рюкзак',
 };
+
+export const CATEGORY_LABELS: Record<ItemCategory, string> = {
+  firearm: 'огнестрел',
+  melee: 'холодное',
+  tool: 'инструмент',
+  armor: 'защита',
+  backpack: 'рюкзак',
+};
+
+/** Item name by definition id (for logs of items that were left behind). */
+export function itemName(defId: string): string {
+  return GAME_CONTENT.items[defId]?.name ?? defId;
+}
+
+/** ["Медикаменты ×3", "Помповый дробовик ×1"] — resources and unique items grouped by type. */
+export function foundList(
+  resources: ResourceDelta,
+  itemDefIds: readonly string[],
+): string[] {
+  const lines = RESOURCE_KINDS.filter((kind) => (resources[kind] ?? 0) > 0).map(
+    (kind) => `${RESOURCE_LABELS[kind]} ×${resources[kind] ?? 0}`,
+  );
+  const counts = new Map<string, number>();
+  for (const defId of itemDefIds) counts.set(defId, (counts.get(defId) ?? 0) + 1);
+  for (const [defId, n] of counts) lines.push(`${itemName(defId)} ×${n}`);
+  return lines;
+}
 
 export const ERROR_LABELS: Record<GameError, string> = {
   UNKNOWN_LOCATION: 'Неизвестная локация.',
@@ -126,14 +154,21 @@ export function describeLogEntry(entry: GameLogEntry, nameOf: (id: string) => st
     case 'lootFound': {
       const bonus = entry.scavengingBonusPercent > 0 ? ` (поиск +${entry.scavengingBonusPercent} %)` : '';
       const left = hasAny(entry.leftBehind) ? ` Не поместилось, осталось на месте: ${formatAmounts(entry.leftBehind)}.` : '';
-      return `Найдено в локации «${locationName(entry.locationId)}»: ${formatDelta(entry.loot)}${bonus}.${left}`;
+      const items = entry.items.length > 0 ? ` Предметы: ${entry.items.map((i) => itemName(i.defId)).join(', ')}.` : '';
+      const itemsLeft =
+        entry.itemsLeftBehind.length > 0
+          ? ` Пришлось оставить (не хватило места): ${entry.itemsLeftBehind.map(itemName).join(', ')}.`
+          : '';
+      return `Найдено в локации «${locationName(entry.locationId)}»: ${formatDelta(entry.loot)}${bonus}.${left}${items}${itemsLeft}`;
     }
     case 'expeditionReturned':
       return `${
         entry.aborted
           ? `Отряд прервал поход в «${locationName(entry.locationId)}» и вернулся.`
           : `Отряд вернулся из локации «${locationName(entry.locationId)}».`
-      } На склад: ${formatAmounts(entry.loot)} (из них остаток припасов: ${formatAmounts(entry.suppliesReturned)}).`;
+      } На склад: ${formatAmounts(entry.loot)} (из них остаток припасов: ${formatAmounts(entry.suppliesReturned)})${
+        entry.items.length > 0 ? `; предметы: ${entry.items.length}` : ''
+      }.`;
     case 'dailyConsumption':
       return `День ${entry.day}. ${entry.expeditionId === null ? 'База' : 'Отряд в пути (свои припасы)'}: паёк на ${entry.aliveCount} чел. — еда −${entry.consumed.food ?? 0}, вода −${entry.consumed.water ?? 0}.`;
     case 'shortage':

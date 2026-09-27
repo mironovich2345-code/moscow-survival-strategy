@@ -1,6 +1,7 @@
+import { allocateId } from '../gameState/ids';
 import type { GameState } from '../gameState/types';
 import { SUPPLY_KINDS, fitIntoCapacity, squadLoad } from '../inventory';
-import type { ItemCatalog, Supplies } from '../inventory';
+import type { ItemCatalog, ItemDefId, ItemInstance, Supplies } from '../inventory';
 import { RESOURCE_KINDS } from '../resources';
 import type { ResourceDelta, ResourceKind } from '../resources';
 import type { Expedition } from './types';
@@ -86,8 +87,20 @@ export function fitFindings(
   found: ResourceDelta,
   order: readonly ResourceKind[] = RESOURCE_KINDS,
 ): { readonly accepted: ResourceDelta; readonly leftBehind: ResourceDelta } {
-  const load = squadLoad(state, catalog, expedition.memberIds, carriedResources(expedition));
-  return fitIntoCapacity(load.capacity, load.equipment, carriedResources(expedition), found, order);
+  const load = squadLoad(
+    state,
+    catalog,
+    expedition.memberIds,
+    carriedResources(expedition),
+    expedition.haulItems,
+  );
+  return fitIntoCapacity(
+    load.capacity,
+    load.equipment + load.items,
+    carriedResources(expedition),
+    found,
+    order,
+  );
 }
 
 /** Puts findings into the haul, as far as capacity allows. */
@@ -103,4 +116,50 @@ export function addFindingsToHaul(
     accepted,
     leftBehind,
   };
+}
+
+export interface TakeItemsResult {
+  readonly state: GameState;
+  readonly expedition: Expedition;
+  /** Items the squad took, with their new stable instance ids. */
+  readonly taken: readonly ItemInstance[];
+  /** Definitions of items that did not fit and were left where they were. */
+  readonly leftBehind: readonly ItemDefId[];
+}
+
+/**
+ * Tries to pick up found unique items one by one. An item is taken only if it
+ * fits into the free capacity as a whole; nothing already carried is dropped
+ * for it. Taken items get a stable id (`<defId>-<nextId>`), are registered in
+ * GameState.items and placed into the expedition's haulItems.
+ */
+export function takeFoundItems(
+  state: GameState,
+  catalog: ItemCatalog,
+  expedition: Expedition,
+  defIds: readonly ItemDefId[],
+): TakeItemsResult {
+  let next = state;
+  let current = expedition;
+  const taken: ItemInstance[] = [];
+  const leftBehind: ItemDefId[] = [];
+  for (const defId of defIds) {
+    const definition = catalog[defId];
+    if (!definition) continue;
+    const load = squadLoad(next, catalog, current.memberIds, carriedResources(current), current.haulItems);
+    if (load.total + definition.weight > load.capacity) {
+      leftBehind.push(defId);
+      continue;
+    }
+    const [id, withId] = allocateId(next, defId);
+    const instance: ItemInstance = { id, defId };
+    current = { ...current, haulItems: [...current.haulItems, id] };
+    next = {
+      ...withId,
+      items: { ...withId.items, [id]: instance },
+      expeditions: withId.expeditions.map((e) => (e.id === current.id ? current : e)),
+    };
+    taken.push(instance);
+  }
+  return { state: next, expedition: current, taken, leftBehind };
 }

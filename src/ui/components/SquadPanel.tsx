@@ -3,12 +3,14 @@ import {
   HOURS_PER_TURN,
   MAX_SQUAD_SIZE,
   SUPPLY_KINDS,
+  adjustSupplyAmount,
   applyLootBonus,
   carryCapacity,
   emptySupplies,
   equipmentWeight,
   getScavengingBonusPercent,
   isAvailableForSquad,
+  maxSupplyThatFits,
   squadLoad,
   validateExpedition,
   type LocationDefinition,
@@ -38,8 +40,14 @@ export function SquadPanel({ location, onSent }: SquadPanelProps) {
   const changeSupply = (kind: SupplyKind, delta: number) =>
     setSupplies((current) => ({
       ...current,
-      [kind]: Math.min(game.resources[kind], Math.max(0, current[kind] + delta)),
+      [kind]: adjustSupplyAmount(current[kind], delta, game.resources[kind]),
     }));
+  const setMax = (kind: SupplyKind) =>
+    setSupplies((current) => ({
+      ...current,
+      [kind]: maxSupplyThatFits(game, GAME_CONTENT.items, selected, current, kind),
+    }));
+  const stepsFor = (kind: SupplyKind): readonly number[] => (kind === 'ammunition' ? [-10, -1, 1, 10] : [-1, 1]);
 
   const squad = game.characters.filter((c) => selected.includes(c.id));
   const bonus = getScavengingBonusPercent(squad);
@@ -136,27 +144,49 @@ export function SquadPanel({ location, onSent }: SquadPanelProps) {
         {SUPPLY_KINDS.map((kind) => (
           <li key={kind} className="supplies__row">
             <span className="supplies__label">{RESOURCE_LABELS[kind]}</span>
-            <button
-              type="button"
-              className="small"
-              aria-label={`${RESOURCE_LABELS[kind]} −`}
-              disabled={supplies[kind] <= 0}
-              onClick={() => changeSupply(kind, -1)}
-            >
-              −
-            </button>
+            {stepsFor(kind)
+              .filter((step) => step < 0)
+              .map((step) => (
+                <button
+                  key={step}
+                  type="button"
+                  className="small"
+                  aria-label={`${RESOURCE_LABELS[kind]} ${step}`}
+                  disabled={supplies[kind] <= 0}
+                  onClick={() => changeSupply(kind, step)}
+                >
+                  {step === -1 ? '−' : `−${-step}`}
+                </button>
+              ))}
             <span className="supplies__value" data-supply={kind}>
               {supplies[kind]}
             </span>
-            <button
-              type="button"
-              className="small"
-              aria-label={`${RESOURCE_LABELS[kind]} +`}
-              disabled={supplies[kind] >= game.resources[kind]}
-              onClick={() => changeSupply(kind, 1)}
-            >
-              +
-            </button>
+            {stepsFor(kind)
+              .filter((step) => step > 0)
+              .map((step) => (
+                <button
+                  key={step}
+                  type="button"
+                  className="small"
+                  aria-label={`${RESOURCE_LABELS[kind]} +${step}`}
+                  disabled={supplies[kind] >= game.resources[kind]}
+                  onClick={() => changeSupply(kind, step)}
+                >
+                  {step === 1 ? '+' : `+${step}`}
+                </button>
+              ))}
+            {kind === 'ammunition' && (
+              <button
+                type="button"
+                className="small"
+                aria-label={`${RESOURCE_LABELS[kind]} MAX`}
+                disabled={selected.length === 0}
+                title="Сколько есть на складе и помещается в свободный груз"
+                onClick={() => setMax(kind)}
+              >
+                MAX
+              </button>
+            )}
             <span className="muted small">на складе {game.resources[kind]}</span>
           </li>
         ))}

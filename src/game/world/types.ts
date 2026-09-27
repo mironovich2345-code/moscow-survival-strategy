@@ -31,6 +31,13 @@ export interface LootRange {
   readonly chancePercent?: number;
 }
 
+/** A chance to find one unique item (see docs/GAME_RULES.md «Уникальные предметы в добыче»). */
+export interface ItemLootEntry {
+  readonly defId: ItemDefId;
+  /** 1–100 %. */
+  readonly chancePercent: number;
+}
+
 export interface LocationDefinition {
   readonly id: LocationId;
   readonly name: string;
@@ -41,6 +48,8 @@ export interface LocationDefinition {
   /** Total expedition time (there and back, including search), in turns. */
   readonly expeditionTurns: number;
   readonly loot: readonly LootRange[];
+  /** Unique items that may be found, rolled after resources. */
+  readonly itemLoot?: readonly ItemLootEntry[];
 }
 
 /** Everything static the game logic needs to run. Passed in, never imported. */

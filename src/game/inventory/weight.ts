@@ -71,25 +71,41 @@ export function carryCapacity(
   );
 }
 
+/** Total weight of the given item instances (e.g. an expedition's found items). */
+export function itemsWeight(
+  itemIds: readonly string[],
+  registry: ItemRegistry,
+  catalog: ItemCatalog,
+): number {
+  return itemIds.reduce((sum, id) => sum + (getItemDefinition(registry, catalog, id)?.weight ?? 0), 0);
+}
+
 export interface SquadLoad {
   readonly equipment: number;
+  /** Found unique items carried in the haul. */
+  readonly items: number;
   readonly resources: number;
   readonly total: number;
   readonly capacity: number;
 }
 
-/** load = equipment of members + weight of carried resources; capacity = Σ member capacity. */
+/**
+ * load = equipment of members + found items + weight of carried resources;
+ * capacity = Σ member capacity.
+ */
 export function squadLoad(
   state: GameState,
   catalog: ItemCatalog,
   memberIds: readonly string[],
   carried: ResourceDelta,
+  carriedItems: readonly string[] = [],
 ): SquadLoad {
   const members = state.characters.filter((c) => memberIds.includes(c.id));
   const equipment = members.reduce((sum, c) => sum + equipmentWeight(c, state.items, catalog), 0);
   const capacity = members.reduce((sum, c) => sum + carryCapacity(c, state.items, catalog), 0);
+  const items = itemsWeight(carriedItems, state.items, catalog);
   const resources = resourceWeight(carried);
-  return { equipment, resources, total: equipment + resources, capacity };
+  return { equipment, items, resources, total: equipment + items + resources, capacity };
 }
 
 export interface FitResult {

@@ -54,6 +54,10 @@ export const LOCATIONS = {
       { resource: 'fuel', min: 2, max: 5 },
       { resource: 'materials', min: 2, max: 6 },
     ],
+    itemLoot: [
+      { defId: 'city_backpack', chancePercent: 15 },
+      { defId: 'crowbar', chancePercent: 15 },
+    ],
   },
   [LEFORTOVO_POLICE_ID]: {
     id: LEFORTOVO_POLICE_ID,
@@ -66,6 +70,10 @@ export const LOCATIONS = {
     loot: [
       { resource: 'ammunition', min: 6, max: 15 },
       { resource: 'medicine', min: 1, max: 2, chancePercent: 25 },
+    ],
+    itemLoot: [
+      { defId: 'pump_shotgun', chancePercent: 10 },
+      { defId: 'police_vest', chancePercent: 15 },
     ],
   },
 } as const satisfies Record<string, LocationDefinition>;

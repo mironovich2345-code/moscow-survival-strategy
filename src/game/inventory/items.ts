@@ -29,11 +29,14 @@ export function findItemLocation(state: GameState, itemId: ItemInstanceId): Item
       }
     }
   }
+  const expedition = state.expeditions.find((e) => e.haulItems.includes(itemId));
+  if (expedition) return { type: 'expedition', expeditionId: expedition.id };
   return undefined;
 }
 
 /**
- * Checks the core invariant: every registered item is in exactly one place,
+ * Checks the core invariant: every registered item is in exactly one place
+ * (storage, one equipment slot, or the haul of one active expedition),
  * and every referenced id is registered. Returns human-readable problems.
  */
 export function findItemLocationErrors(state: GameState): string[] {
@@ -47,6 +50,7 @@ export function findItemLocationErrors(state: GameState): string[] {
       if (id !== null) count(id);
     }
   }
+  for (const expedition of state.expeditions) expedition.haulItems.forEach(count);
   for (const [id, n] of places) {
     if (!state.items[id]) errors.push(`unknown item ${id}`);
     if (n > 1) errors.push(`item ${id} is in ${n} places`);
@@ -87,6 +91,8 @@ export function moveItem(
   const definition = instance ? catalog[instance.defId] : undefined;
   const from = findItemLocation(state, itemId);
   if (!instance || !definition || !from) return { ok: false, error: 'ITEM_NOT_FOUND' };
+  // Found items stay with the squad until it is back.
+  if (from.type === 'expedition') return { ok: false, error: 'ITEM_UNAVAILABLE' };
 
   if (from.type === 'character') {
     const owner = findCharacter(state.characters, from.characterId);

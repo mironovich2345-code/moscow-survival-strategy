@@ -1,4 +1,4 @@
-import type { CharacterId } from '../characters';
+import type { CharacterId, ItemInstanceId } from '../characters';
 import type { EventId } from '../events';
 import type { Supplies } from '../inventory';
 import type { ResourceDelta } from '../resources';
@@ -22,10 +22,15 @@ export interface Expedition {
   readonly memberIds: readonly CharacterId[];
   readonly departedAt: GameHour;
   readonly returnsAt: GameHour;
+  /** When the squad searches the location (mid-trip). */
+  readonly searchAt: GameHour;
+  readonly searched: boolean;
   /** Taken from the base at departure; spent on the way; leftovers return to storage. */
   readonly supplies: Supplies;
-  /** Found on the way (events). Never negative. Delivered to storage on return. */
+  /** Resources found on the way (events). Never negative. Delivered to storage on return. */
   readonly haul: ResourceDelta;
+  /** Unique items found on the way (instance ids). Moved to storage on return. */
+  readonly haulItems: readonly ItemInstanceId[];
   /** Event waiting for the player's decision; the expedition is paused. */
   readonly pendingEventId: EventId | null;
   /** Events already met on this trip (no repeats within one expedition). */
